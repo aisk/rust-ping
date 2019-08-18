@@ -6,3 +6,6 @@ license = "MIT"
 description = "ICMP library"
 
 [dependencies]
+socket2 = "0.3"
+failure = "0.1"
+rand = "0.7"
