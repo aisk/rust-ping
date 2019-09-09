@@ -3,6 +3,7 @@ extern crate failure;
 extern crate rand;
 extern crate socket2;
 
+mod errors;
 mod packet;
 mod ping;
 
