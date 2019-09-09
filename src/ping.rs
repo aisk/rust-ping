@@ -23,20 +23,16 @@ pub fn ping(addr: IpAddr) -> Result<(), Error> {
     };
 
     let socket = if dest.is_ipv4() {
-        try!(Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4())))
-    } else {
-        try!(Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())))
-    };
-
-    if dest.is_ipv4() {
         if request.encode::<IcmpV4>(&mut buffer[..]).is_err() {
             return Err(ErrorKind::InternalError.into());
         }
+        try!(Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4())))
     } else {
         if request.encode::<IcmpV6>(&mut buffer[..]).is_err() {
             return Err(ErrorKind::InternalError.into());
         }
-    }
+        try!(Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())))
+    };
 
     try!(socket.send_to(&mut buffer, &dest.into()));
 
