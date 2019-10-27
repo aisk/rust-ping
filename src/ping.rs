@@ -64,7 +64,5 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
             Err(_) => return Err(ErrorKind::InternalError.into()),
         }
     };
-    assert!(reply.ident == request.ident);
-    assert!(reply.seq_cnt == request.seq_cnt);
     return Ok(());
 }
