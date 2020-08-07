@@ -4,8 +4,10 @@ version = "0.2.0"
 authors = ["An Long <aisk1988@gmail.com>"]
 license = "MIT"
 description = "ICMP library"
+repository = "https://github.com/aisk/ping"
+edition = "2018"
 
 [dependencies]
 socket2 = "0.3"
-failure = "0.1"
+thiserror = "1.0.20"
 rand = "0.7"
