@@ -1,12 +1,13 @@
+use thiserror::Error;
 use std::io::Write;
 
 pub const HEADER_SIZE: usize = 8;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum Error {
-    #[fail(display = "invalid size")]
+    #[error("invalid size")]
     InvalidSize,
-    #[fail(display = "invalid packet")]
+    #[error("invalid packet")]
     InvalidPacket,
 }
 
