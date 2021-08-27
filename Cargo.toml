@@ -1,6 +1,6 @@
 [package]
 name = "ping"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["An Long <aisk1988@gmail.com>"]
 license = "MIT"
 description = "ICMP library"
