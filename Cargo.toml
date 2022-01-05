@@ -10,4 +10,4 @@ edition = "2018"
 [dependencies]
 socket2 = "0.3"
 thiserror = "1.0"
-rand = "0.7"
+rand = "0.8"
