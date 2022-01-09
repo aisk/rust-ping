@@ -1,4 +1,5 @@
 use std::net::{SocketAddr, IpAddr};
+use std::io::Read;
 use std::time::Duration;
 
 use rand::random;
@@ -28,16 +29,16 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
         payload: payload.unwrap_or(default_payload),
     };
 
-    let socket = if dest.is_ipv4() {
+    let mut socket = if dest.is_ipv4() {
         if request.encode::<IcmpV4>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
-        Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4()))?
+        Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))?
     } else {
         if request.encode::<IcmpV6>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
-        Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6()))?
+        Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))?
     };
 
     socket.set_ttl(ttl.unwrap_or(64))?;
@@ -49,7 +50,7 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
     socket.set_read_timeout(timeout)?;
 
     let mut buffer: [u8; 2048] = [0; 2048];
-    socket.recv_from(&mut buffer)?;
+    socket.read(&mut buffer)?;
 
     let _reply = if dest.is_ipv4() {
         let ipv4_packet = match IpV4Packet::decode(&buffer) {
