@@ -12,6 +12,12 @@ const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
 
+#[cfg(not(unix))]
+const SOCKET_TYPE: Type = Type::RAW;
+
+#[cfg(unix)]
+const SOCKET_TYPE: Type = Type::DGRAM;
+
 pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Option<u16>, seq_cnt: Option<u16>, payload: Option<&Token>) -> Result<(), Error> {
     let timeout = match timeout {
         Some(timeout) => Some(timeout),
@@ -33,12 +39,12 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
         if request.encode::<IcmpV4>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
-        Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))?
+        Socket::new(Domain::IPV4, SOCKET_TYPE, Some(Protocol::ICMPV4))?
     } else {
         if request.encode::<IcmpV6>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
-        Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))?
+        Socket::new(Domain::IPV6, SOCKET_TYPE, Some(Protocol::ICMPV6))?
     };
 
     socket.set_ttl(ttl.unwrap_or(64))?;
