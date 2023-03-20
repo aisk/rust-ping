@@ -44,7 +44,7 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
     if dest.is_ipv4() {
         socket.set_ttl(ttl.unwrap_or(64))?;
     } else {
-        socket.set_unicast_hops_v6(ttl.unwrap_or(64));
+        socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
     }
 
     socket.set_write_timeout(timeout)?;
