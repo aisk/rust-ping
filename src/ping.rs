@@ -1,18 +1,26 @@
-use std::net::{SocketAddr, IpAddr};
 use std::io::Read;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
 
-use crate::errors::{Error};
-use crate::packet::{EchoReply, EchoRequest, IpV4Packet, IcmpV4, IcmpV6, ICMP_HEADER_SIZE};
+use crate::errors::Error;
+use crate::packet::{EchoReply, EchoRequest, IcmpV4, IcmpV6, IpV4Packet, ICMP_HEADER_SIZE};
 
 const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
 
-pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Option<u16>, seq_cnt: Option<u16>, payload: Option<&Token>) -> Result<(), Error> {
+fn ping_with_type(
+    socket_type: Type,
+    addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
+    ident: Option<u16>,
+    seq_cnt: Option<u16>,
+    payload: Option<&Token>,
+) -> Result<(), Error> {
     let timeout = match timeout {
         Some(timeout) => Some(timeout),
         None => Some(Duration::from_secs(4)),
@@ -33,12 +41,12 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
         if request.encode::<IcmpV4>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
-        Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))?
+        Socket::new(Domain::IPV4, socket_type, Some(Protocol::ICMPV4))?
     } else {
         if request.encode::<IcmpV6>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
-        Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))?
+        Socket::new(Domain::IPV6, socket_type, Some(Protocol::ICMPV6))?
     };
 
     socket.set_ttl(ttl.unwrap_or(64))?;
@@ -69,4 +77,37 @@ pub fn ping(addr: IpAddr, timeout: Option<Duration>, ttl: Option<u32>, ident: Op
     };
 
     return Ok(());
+}
+
+pub fn privileged_ping(
+    addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
+    ident: Option<u16>,
+    seq_cnt: Option<u16>,
+    payload: Option<&Token>,
+) -> Result<(), Error> {
+    return ping_with_type(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload);
+}
+
+pub fn unprivileged_ping(
+    addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
+    ident: Option<u16>,
+    seq_cnt: Option<u16>,
+    payload: Option<&Token>,
+) -> Result<(), Error> {
+    return ping_with_type(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload);
+}
+
+pub fn ping(
+    addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
+    ident: Option<u16>,
+    seq_cnt: Option<u16>,
+    payload: Option<&Token>,
+) -> Result<(), Error> {
+    return privileged_ping(addr, timeout, ttl, ident, seq_cnt, payload);
 }
