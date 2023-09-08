@@ -49,7 +49,11 @@ fn ping_with_type(
         Socket::new(Domain::IPV6, socket_type, Some(Protocol::ICMPV6))?
     };
 
-    socket.set_ttl(ttl.unwrap_or(64))?;
+    if dest.is_ipv4() {
+        socket.set_ttl(ttl.unwrap_or(64))?;
+    } else {
+        socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
+    }
 
     socket.set_write_timeout(timeout)?;
 
