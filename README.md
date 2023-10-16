@@ -6,6 +6,14 @@
 
 Ping function implemented in rust.
 
+## dgram sock and raw sock
+
+Sending an ICMP package should create a socket with type 'raw' on most platforms. And most of these platforms require special privileges. Basically, it needs to run with sudo on Linux to create a 'raw' socket.
+
+These requirements introduce security risks, so on modern platforms, 'unprivileged ping' has been introduced, with socket type 'dgram'. So there are two mods in this crate, rawsock and dgramsock, which have the same function ping. And the global ping function is just an alias to the rawsock::ping. You can pick the one which is suitable for your use case.
+
+For Linux users, although modern kernels support dgram, in some distributions (like Arch), it's disabled by default. More details: https://wiki.archlinux.org/title/sysctl#Allow_unprivileged_users_to_create_IPPROTO_ICMP_sockets
+
 ## License
 
 This library contains codes from https://github.com/knsd/tokio-ping, which is licensed under either of
