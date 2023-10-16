@@ -1,10 +1,10 @@
 [package]
 name = "ping"
-version = "0.4.1"
-authors = ["An Long <aisk1988@gmail.com>"]
+version = "0.5.0"
+authors = ["AN Long <aisk1988@gmail.com>"]
 license = "MIT"
-description = "ICMP library"
-repository = "https://github.com/aisk/ping"
+description = "Simle and naive ping implementation in rust."
+repository = "https://github.com/aisk/rust-ping"
 edition = "2018"
 
 [dependencies]
