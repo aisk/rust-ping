@@ -12,7 +12,7 @@ const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
 
-fn ping_with_type(
+fn ping_with_socktype(
     socket_type: Type,
     addr: IpAddr,
     timeout: Option<Duration>,
@@ -83,26 +83,32 @@ fn ping_with_type(
     return Ok(());
 }
 
-pub fn privileged_ping(
-    addr: IpAddr,
-    timeout: Option<Duration>,
-    ttl: Option<u32>,
-    ident: Option<u16>,
-    seq_cnt: Option<u16>,
-    payload: Option<&Token>,
-) -> Result<(), Error> {
-    return ping_with_type(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload);
+pub mod rawsock {
+    use super::*;
+    pub fn ping(
+        addr: IpAddr,
+        timeout: Option<Duration>,
+        ttl: Option<u32>,
+        ident: Option<u16>,
+        seq_cnt: Option<u16>,
+        payload: Option<&Token>,
+    ) -> Result<(), Error> {
+        return ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload);
+    }
 }
 
-pub fn unprivileged_ping(
-    addr: IpAddr,
-    timeout: Option<Duration>,
-    ttl: Option<u32>,
-    ident: Option<u16>,
-    seq_cnt: Option<u16>,
-    payload: Option<&Token>,
-) -> Result<(), Error> {
-    return ping_with_type(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload);
+pub mod dgramsock {
+    use super::*;
+    pub fn ping(
+        addr: IpAddr,
+        timeout: Option<Duration>,
+        ttl: Option<u32>,
+        ident: Option<u16>,
+        seq_cnt: Option<u16>,
+        payload: Option<&Token>,
+    ) -> Result<(), Error> {
+        return ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload);
+    }
 }
 
 pub fn ping(
@@ -113,5 +119,5 @@ pub fn ping(
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
 ) -> Result<(), Error> {
-    return privileged_ping(addr, timeout, ttl, ident, seq_cnt, payload);
+    return rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload);
 }
