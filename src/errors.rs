@@ -10,6 +10,6 @@ pub enum Error {
     IoError {
         #[from]
         #[source]
-        error: ::std::io::Error
-    }
+        error: ::std::io::Error,
+    },
 }
