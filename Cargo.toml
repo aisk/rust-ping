@@ -3,7 +3,7 @@ name = "ping"
 version = "0.5.1"
 authors = ["AN Long <aisk1988@gmail.com>"]
 license = "MIT"
-description = "Simle and naive ping implementation in rust."
+description = "Simple and naive ping implementation in Rust."
 repository = "https://github.com/aisk/rust-ping"
 edition = "2018"
 
