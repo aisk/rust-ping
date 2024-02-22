@@ -91,7 +91,10 @@ fn ping_with_socktype(
         }
 
         // if ident is not correct check if timeout is over
-        time_elapsed = SystemTime::now().duration_since(time_start).expect("Clock may have gone backwards");
+        time_elapsed = match SystemTime::now().duration_since(time_start) {
+            Ok(reply) => reply,
+            Err(_) => return Err(Error::InternalError.into()),
+        };
         if time_elapsed >= timeout {
             let error = std::io::Error::new(std::io::ErrorKind::TimedOut, "Timeout occured");
             return Err(Error::IoError { error: (error) });
