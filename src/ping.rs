@@ -72,16 +72,16 @@ fn ping_with_socktype(
         let reply = if dest.is_ipv4() {
             let ipv4_packet = match IpV4Packet::decode(&buffer) {
                 Ok(packet) => packet,
-                Err(_) => return Err(Error::InternalError.into()),
+                Err(_) => return Err(Error::DecodeV4Error.into()),
             };
             match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
                 Ok(reply) => reply,
-                Err(_) => return Err(Error::InternalError.into()),
+                Err(_) => return Err(Error::DecodeEchoReplyError.into()),
             }
         } else {
             match EchoReply::decode::<IcmpV6>(&buffer) {
                 Ok(reply) => reply,
-                Err(_) => return Err(Error::InternalError.into()),
+                Err(_) => return Err(Error::DecodeEchoReplyError.into()),
             }
         };
 

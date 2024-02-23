@@ -6,6 +6,10 @@ pub enum Error {
     InvalidProtocol,
     #[error("internal error")]
     InternalError,
+    #[error("decode v4 error")]
+    DecodeV4Error,
+    #[error("decode echo reply error")]
+    DecodeEchoReplyError,
     #[error("io error: {error}")]
     IoError {
         #[from]
