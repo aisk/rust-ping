@@ -1,6 +1,6 @@
 [package]
 name = "ping"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["AN Long <aisk1988@gmail.com>"]
 license = "MIT"
 description = "Simple and naive ping implementation in Rust."
