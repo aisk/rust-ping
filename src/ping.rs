@@ -1,6 +1,6 @@
 use std::io::Read;
 use std::net::{IpAddr, SocketAddr};
-use std::time::Duration;
+use std::time::{Duration,SystemTime};
 
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -21,9 +21,11 @@ fn ping_with_socktype(
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
 ) -> Result<(), Error> {
+    let time_start = SystemTime::now();
+
     let timeout = match timeout {
-        Some(timeout) => Some(timeout),
-        None => Some(Duration::from_secs(4)),
+        Some(timeout) => timeout,
+        None => Duration::from_secs(4),
     };
 
     let dest = SocketAddr::new(addr, 0);
@@ -55,32 +57,49 @@ fn ping_with_socktype(
         socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
     }
 
-    socket.set_write_timeout(timeout)?;
+    socket.set_write_timeout(Some(timeout))?;
 
     socket.send_to(&mut buffer, &dest.into())?;
 
-    socket.set_read_timeout(timeout)?;
+    // loop until either an echo with correct ident was received or timeout is over
+    let mut time_elapsed = Duration::from_secs(0);
+    loop {
+        socket.set_read_timeout(Some(timeout - time_elapsed))?;
 
-    let mut buffer: [u8; 2048] = [0; 2048];
-    socket.read(&mut buffer)?;
+        let mut buffer: [u8; 2048] = [0; 2048];
+        socket.read(&mut buffer)?;
 
-    let _reply = if dest.is_ipv4() {
-        let ipv4_packet = match IpV4Packet::decode(&buffer) {
-            Ok(packet) => packet,
+        let reply = if dest.is_ipv4() {
+            let ipv4_packet = match IpV4Packet::decode(&buffer) {
+                Ok(packet) => packet,
+                Err(_) => return Err(Error::DecodeV4Error.into()),
+            };
+            match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
+                Ok(reply) => reply,
+                Err(_) => return Err(Error::DecodeEchoReplyError.into()),
+            }
+        } else {
+            match EchoReply::decode::<IcmpV6>(&buffer) {
+                Ok(reply) => reply,
+                Err(_) => return Err(Error::DecodeEchoReplyError.into()),
+            }
+        };
+
+        if reply.ident == request.ident {
+            // received correct ident
+            return Ok(());
+        }
+
+        // if ident is not correct check if timeout is over
+        time_elapsed = match SystemTime::now().duration_since(time_start) {
+            Ok(reply) => reply,
             Err(_) => return Err(Error::InternalError.into()),
         };
-        match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
-            Ok(reply) => reply,
-            Err(_) => return Err(Error::InternalError.into()),
+        if time_elapsed >= timeout {
+            let error = std::io::Error::new(std::io::ErrorKind::TimedOut, "Timeout occured");
+            return Err(Error::IoError { error: (error) });
         }
-    } else {
-        match EchoReply::decode::<IcmpV6>(&buffer) {
-            Ok(reply) => reply,
-            Err(_) => return Err(Error::InternalError.into()),
-        }
-    };
-
-    return Ok(());
+    }
 }
 
 pub mod rawsock {
