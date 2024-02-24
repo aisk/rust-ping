@@ -76,12 +76,12 @@ fn ping_with_socktype(
             };
             match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
                 Ok(reply) => reply,
-                Err(_) => return Err(Error::DecodeEchoReplyError.into()),
+                Err(_) => continue,
             }
         } else {
             match EchoReply::decode::<IcmpV6>(&buffer) {
                 Ok(reply) => reply,
-                Err(_) => return Err(Error::DecodeEchoReplyError.into()),
+                Err(_) => continue,
             }
         };
 
