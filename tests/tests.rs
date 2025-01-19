@@ -64,3 +64,10 @@ fn basic_dgram_v6() {
     )
     .unwrap();
 }
+
+#[test]
+fn builder_api() {
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    ping::Ping::new(addr).timeout(timeout).ping().unwrap();
+}
