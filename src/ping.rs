@@ -1,6 +1,6 @@
 use std::io::Read;
 use std::net::{IpAddr, SocketAddr};
-use std::time::{Duration,SystemTime};
+use std::time::{Duration, SystemTime};
 
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -139,4 +139,70 @@ pub fn ping(
     payload: Option<&Token>,
 ) -> Result<(), Error> {
     return rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload);
+}
+
+pub struct Ping<'a> {
+    socket_type: Type,
+    addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
+    ident: Option<u16>,
+    seq_cnt: Option<u16>,
+    payload: Option<&'a Token>,
+}
+
+impl<'a> Ping<'a> {
+    pub fn new(addr: IpAddr) -> Self {
+        return Ping {
+            socket_type: Type::DGRAM,
+            addr: addr,
+            timeout: None,
+            ttl: None,
+            ident: None,
+            seq_cnt: None,
+            payload: None,
+        };
+    }
+
+    pub fn socket_type(&mut self, socket_type: Type) -> &Self {
+        self.socket_type = socket_type;
+        return self;
+    }
+
+    pub fn timeout(&mut self, timeout: Duration) -> &Self {
+        self.timeout = Some(timeout);
+        return self;
+    }
+
+    pub fn ttl(&mut self, ttl: u32) -> &Self {
+        self.ttl = Some(ttl);
+        return self;
+    }
+
+    pub fn ident(&mut self, ident: u16) -> &Self {
+        self.ident = Some(ident);
+        return self;
+    }
+
+    pub fn seq_cnt(&mut self, seq_cnt: u16) -> &Self {
+        self.seq_cnt = Some(seq_cnt);
+        return self;
+    }
+
+    pub fn payload(&mut self, payload: &'a Token) -> &Self {
+        self.payload = Some(payload);
+        return self;
+    }
+
+    pub fn ping(&self) -> Result<(), Error> {
+        return ping_with_socktype(
+            self.socket_type,
+            self.addr,
+            self.timeout,
+            self.ttl,
+            self.ident,
+            self.seq_cnt,
+            self.payload,
+        );
+    }
 }
