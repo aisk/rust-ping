@@ -35,6 +35,7 @@ fn basic_v6() {
     .unwrap();
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn basic_dgram() {
     let addr = "127.0.0.1".parse().unwrap();
@@ -50,6 +51,7 @@ fn basic_dgram() {
     .unwrap();
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn basic_dgram_v6() {
     let addr = "::1".parse().unwrap();
