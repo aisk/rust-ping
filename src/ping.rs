@@ -153,8 +153,13 @@ pub struct Ping<'a> {
 
 impl<'a> Ping<'a> {
     pub fn new(addr: IpAddr) -> Self {
+        let socket_type = if std::env::consts::OS == "windows" {
+            Type::RAW
+        } else {
+            Type::DGRAM
+        };
         return Ping {
-            socket_type: Type::DGRAM,
+            socket_type: socket_type,
             addr: addr,
             timeout: None,
             ttl: None,
