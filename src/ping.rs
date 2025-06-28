@@ -194,7 +194,7 @@ impl<'a> Ping<'a> {
         return self;
     }
 
-    pub fn ping(&self) -> Result<(), Error> {
+    pub fn send(&self) -> Result<(), Error> {
         return ping_with_socktype(
             self.socket_type,
             self.addr,
@@ -205,4 +205,8 @@ impl<'a> Ping<'a> {
             self.payload,
         );
     }
+}
+
+pub fn new<'a>(addr: IpAddr) -> Ping<'a> {
+    return Ping::new(addr);
 }
