@@ -40,6 +40,7 @@ fn main() {
         Err(e) => eprintln!("Ping failed: {}", e),
     }
 }
+```
 
 ## Socket Types: DGRAM vs. RAW
 
@@ -71,7 +72,6 @@ fn main() {
 ```
 
 For Linux users, even if the kernel supports `dgram` ping, some distributions (like Arch) might disable it by default. More details: https://wiki.archlinux.org/title/sysctl#Allow_unprivileged_users_to_create_IPPROTO_ICMP_sockets
-```
 
 ## License
 
