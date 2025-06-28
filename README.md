@@ -6,13 +6,72 @@
 
 Ping function implemented in rust.
 
-## dgram sock and raw sock
+## Usage
 
-Sending an ICMP package should create a socket of type `raw` on most platforms. And most of these platforms require special privileges. Basically, it needs to run with sudo on Linux to create a `raw` socket.
+To perform a basic ping, you can use the `ping::new` function to create a `Ping` instance and then call the `send` method. By default, on non-Windows systems, it attempts to use a `DGRAM` socket, falling back to `RAW` on Windows.
 
-These requirements introduce security risks, so on modern platforms, `unprivileged ping` has been introduced, with socket type `dgram`. So there are two mods in this crate, rawsock and dgramsock, which have the same function `ping`. And the global ping function is just an alias for the `rawsock::ping`. You can pick the one which is suitable for your use case.
+```rust
+use std::net::IpAddr;
 
-For Linux users, although modern kernels support ping with `dgram`, in some distributions (like Arch), it's disabled by default. More details: https://wiki.archlinux.org/title/sysctl#Allow_unprivileged_users_to_create_IPPROTO_ICMP_sockets
+fn main() {
+    let target_ip = "8.8.8.8".parse().unwrap();
+    match ping::new(target_ip).send() {
+        Ok(_) => println!("Ping successful!"),
+        Err(e) => eprintln!("Ping failed: {}", e),
+    }
+}
+```
+
+You can also configure various options like timeout, TTL, and socket type using the builder pattern:
+
+```rust
+use std::net::IpAddr;
+use std::time::Duration;
+use socket2::Type;
+
+fn main() {
+    let target_ip = "8.8.8.8".parse().unwrap();
+    match ping::new(target_ip)
+        .timeout(Duration::from_secs(2))
+        .ttl(128)
+        .send()
+    {
+        Ok(_) => println!("Ping successful with custom options!"),
+        Err(e) => eprintln!("Ping failed: {}", e),
+    }
+}
+
+## Socket Types: DGRAM vs. RAW
+
+Sending an ICMP package typically requires creating a `raw` socket, which often demands special privileges (e.g., running with `sudo` on Linux). This can introduce security risks.
+
+Modern operating systems support `unprivileged ping` using `dgram` sockets, which do not require elevated privileges.
+
+You can specify the socket type using the `socket_type` method of the `Ping` builder.
+
+```rust
+use std::net::IpAddr;
+use socket2::Type;
+
+fn main() {
+    let target_ip = "8.8.8.8".parse().unwrap();
+
+    // Using a DGRAM socket (unprivileged)
+    match ping::new(target_ip).socket_type(Type::DGRAM).send() {
+        Ok(_) => println!("Ping successful with DGRAM socket!"),
+        Err(e) => eprintln!("Ping failed with DGRAM socket: {}", e),
+    }
+
+    // Using a RAW socket (may require privileges)
+    match ping::new(target_ip).socket_type(Type::RAW).send() {
+        Ok(_) => println!("Ping successful with RAW socket!"),
+        Err(e) => eprintln!("Ping failed with RAW socket: {}", e),
+    }
+}
+```
+
+For Linux users, even if the kernel supports `dgram` ping, some distributions (like Arch) might disable it by default. More details: https://wiki.archlinux.org/title/sysctl#Allow_unprivileged_users_to_create_IPPROTO_ICMP_sockets
+```
 
 ## License
 
