@@ -12,6 +12,11 @@ const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
 
+pub enum SocketType {
+    RAW,
+    DGRAM,
+}
+
 fn ping_with_socktype(
     socket_type: Type,
     addr: IpAddr,
@@ -169,32 +174,35 @@ impl<'a> Ping<'a> {
         };
     }
 
-    pub fn socket_type(&mut self, socket_type: Type) -> &Self {
-        self.socket_type = socket_type;
+    pub fn socket_type(&mut self, socket_type: SocketType) -> &mut Self {
+        match socket_type {
+            SocketType::RAW => self.socket_type = Type::RAW,
+            SocketType::DGRAM => self.socket_type = Type::DGRAM,
+        }
         return self;
     }
 
-    pub fn timeout(&mut self, timeout: Duration) -> &Self {
+    pub fn timeout(&mut self, timeout: Duration) -> &mut Self {
         self.timeout = Some(timeout);
         return self;
     }
 
-    pub fn ttl(&mut self, ttl: u32) -> &Self {
+    pub fn ttl(&mut self, ttl: u32) -> &mut Self {
         self.ttl = Some(ttl);
         return self;
     }
 
-    pub fn ident(&mut self, ident: u16) -> &Self {
+    pub fn ident(&mut self, ident: u16) -> &mut Self {
         self.ident = Some(ident);
         return self;
     }
 
-    pub fn seq_cnt(&mut self, seq_cnt: u16) -> &Self {
+    pub fn seq_cnt(&mut self, seq_cnt: u16) -> &mut Self {
         self.seq_cnt = Some(seq_cnt);
         return self;
     }
 
-    pub fn payload(&mut self, payload: &'a Token) -> &Self {
+    pub fn payload(&mut self, payload: &'a Token) -> &mut Self {
         self.payload = Some(payload);
         return self;
     }
