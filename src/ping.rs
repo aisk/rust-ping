@@ -20,6 +20,7 @@ pub enum SocketType {
 fn ping_with_socktype(
     socket_type: Type,
     addr: IpAddr,
+    iface: Option<&[u8]>,
     timeout: Option<Duration>,
     ttl: Option<u32>,
     ident: Option<u16>,
@@ -55,6 +56,8 @@ fn ping_with_socktype(
         }
         Socket::new(Domain::IPV6, socket_type, Some(Protocol::ICMPV6))?
     };
+
+    socket.bind_device(iface)?;
 
     if dest.is_ipv4() {
         socket.set_ttl(ttl.unwrap_or(64))?;
@@ -111,13 +114,14 @@ pub mod rawsock {
     use super::*;
     pub fn ping(
         addr: IpAddr,
+        iface: Option<&[u8]>,
         timeout: Option<Duration>,
         ttl: Option<u32>,
         ident: Option<u16>,
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        return ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload);
+        return ping_with_socktype(Type::RAW, addr, iface, timeout, ttl, ident, seq_cnt, payload);
     }
 }
 
@@ -126,24 +130,26 @@ pub mod dgramsock {
     pub fn ping(
         addr: IpAddr,
         timeout: Option<Duration>,
+        iface: Option<&[u8]>,
         ttl: Option<u32>,
         ident: Option<u16>,
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        return ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload);
+        return ping_with_socktype(Type::DGRAM, addr, iface, timeout, ttl, ident, seq_cnt, payload);
     }
 }
 
 pub fn ping(
     addr: IpAddr,
+    iface: Option<&[u8]>,
     timeout: Option<Duration>,
     ttl: Option<u32>,
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
 ) -> Result<(), Error> {
-    return rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload);
+    return rawsock::ping(addr, iface, timeout, ttl, ident, seq_cnt, payload);
 }
 
 pub struct Ping<'a> {
