@@ -1,8 +1,4 @@
-extern crate ping;
-extern crate rand;
-
 use std::time::Duration;
-
 use rand::random;
 
 #[test]

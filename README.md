@@ -11,8 +11,6 @@ Ping function implemented in rust.
 To perform a basic ping, you can use the `ping::new` function to create a `Ping` instance and then call the `send` method. By default, on non-Windows systems, it attempts to use a `DGRAM` socket, falling back to `RAW` on Windows.
 
 ```rust
-use std::net::IpAddr;
-
 fn main() {
     let target_ip = "8.8.8.8".parse().unwrap();
     match ping::new(target_ip).send() {
@@ -25,9 +23,7 @@ fn main() {
 You can also configure various options like timeout, TTL, and socket type using the builder pattern:
 
 ```rust
-use std::net::IpAddr;
 use std::time::Duration;
-use socket2::Type;
 
 fn main() {
     let target_ip = "8.8.8.8".parse().unwrap();
@@ -39,7 +35,7 @@ fn main() {
         Ok(_) => println!("Ping successful with custom options!"),
         Err(e) => eprintln!("Ping failed: {}", e),
     }
-}
+
 ```
 
 ## Socket Types: DGRAM vs. RAW
@@ -51,20 +47,17 @@ Modern operating systems support `unprivileged ping` using `dgram` sockets, whic
 You can specify the socket type using the `socket_type` method of the `Ping` builder.
 
 ```rust
-use std::net::IpAddr;
-use socket2::Type;
-
 fn main() {
     let target_ip = "8.8.8.8".parse().unwrap();
 
     // Using a DGRAM socket (unprivileged)
-    match ping::new(target_ip).socket_type(Type::DGRAM).send() {
+    match ping::new(target_ip).socket_type(ping::DGRAM).send() {
         Ok(_) => println!("Ping successful with DGRAM socket!"),
         Err(e) => eprintln!("Ping failed with DGRAM socket: {}", e),
     }
 
     // Using a RAW socket (may require privileges)
-    match ping::new(target_ip).socket_type(Type::RAW).send() {
+    match ping::new(target_ip).socket_type(ping::RAW).send() {
         Ok(_) => println!("Ping successful with RAW socket!"),
         Err(e) => eprintln!("Ping failed with RAW socket: {}", e),
     }
