@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use rand::random;
 
 #[test]
@@ -77,4 +77,14 @@ fn builder_api2() {
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     ping::new(addr).timeout(timeout).ttl(42).send().unwrap();
+}
+
+#[test]
+fn duration() {
+    // Ensure that the duration returned is less than the time elapsed 
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    let time_start = SystemTime::now();
+    let time_reply = ping::new(addr).timeout(timeout).ttl(42).send().unwrap();
+    assert!(time_reply < SystemTime::now().duration_since(time_start).unwrap());
 }
