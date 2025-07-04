@@ -25,7 +25,7 @@ fn ping_with_socktype(
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
-) -> Result<(), Error> {
+) -> Result<Duration, Error> {
     let time_start = SystemTime::now();
 
     let timeout = match timeout {
@@ -87,19 +87,20 @@ fn ping_with_socktype(
             match EchoReply::decode::<IcmpV6>(&buffer) {
                 Ok(reply) => reply,
                 Err(_) => continue,
-            }
+    }
         };
-
-        if reply.ident == request.ident {
-            // received correct ident
-            return Ok(());
-        }
 
         // if ident is not correct check if timeout is over
         time_elapsed = match SystemTime::now().duration_since(time_start) {
             Ok(reply) => reply,
             Err(_) => return Err(Error::InternalError.into()),
         };
+        
+        if reply.ident == request.ident {
+            // received correct ident
+            return Ok(time_elapsed);
+        }
+
         if time_elapsed >= timeout {
             let error = std::io::Error::new(std::io::ErrorKind::TimedOut, "Timeout occured");
             return Err(Error::IoError { error: (error) });
@@ -116,7 +117,7 @@ pub mod rawsock {
         ident: Option<u16>,
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
-    ) -> Result<(), Error> {
+    ) -> Result<Duration, Error> {
         return ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload);
     }
 }
@@ -130,7 +131,7 @@ pub mod dgramsock {
         ident: Option<u16>,
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
-    ) -> Result<(), Error> {
+    ) -> Result<Duration, Error> {
         return ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload);
     }
 }
@@ -142,7 +143,7 @@ pub fn ping(
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
-) -> Result<(), Error> {
+) -> Result<Duration, Error> {
     return rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload);
 }
 
@@ -207,7 +208,7 @@ impl<'a> Ping<'a> {
         return self;
     }
 
-    pub fn send(&self) -> Result<(), Error> {
+    pub fn send(&self) -> Result<Duration, Error> {
         return ping_with_socktype(
             self.socket_type,
             self.addr,
