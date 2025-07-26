@@ -78,3 +78,10 @@ fn builder_api2() {
     let timeout = Duration::from_secs(1);
     ping::new(addr).timeout(timeout).ttl(42).send().unwrap();
 }
+
+#[test]
+fn bind_device() {
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    ping::new(addr).timeout(timeout).ttl(42).bind_device("lo").socket_type(ping::SocketType::RAW).send().unwrap();
+}

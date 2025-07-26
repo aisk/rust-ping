@@ -25,6 +25,7 @@ fn ping_with_socktype(
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
+    bind_device: Option<&str>,
 ) -> Result<(), Error> {
     let time_start = SystemTime::now();
 
@@ -60,6 +61,17 @@ fn ping_with_socktype(
         socket.set_ttl(ttl.unwrap_or(64))?;
     } else {
         socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
+    }
+
+    if let Some(device) = bind_device {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        {
+            socket.bind_device(Some(device.as_bytes()))?;
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        {
+            eprintln!("Warning: bind_device is only supported on Linux and Android platforms");
+        }
     }
 
     socket.set_write_timeout(Some(timeout))?;
@@ -117,7 +129,7 @@ pub mod rawsock {
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        return ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload);
+        return ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload, None);
     }
 }
 
@@ -131,7 +143,7 @@ pub mod dgramsock {
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        return ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload);
+        return ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload, None);
     }
 }
 
@@ -154,6 +166,8 @@ pub struct Ping<'a> {
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&'a Token>,
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    bind_device: Option<&'a str>,
 }
 
 impl<'a> Ping<'a> {
@@ -171,6 +185,8 @@ impl<'a> Ping<'a> {
             ident: None,
             seq_cnt: None,
             payload: None,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            bind_device: None,
         };
     }
 
@@ -207,6 +223,12 @@ impl<'a> Ping<'a> {
         return self;
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn bind_device(&mut self, device: &'a str) -> &mut Self {
+        self.bind_device = Some(device);
+        return self;
+    }
+
     pub fn send(&self) -> Result<(), Error> {
         return ping_with_socktype(
             self.socket_type,
@@ -216,6 +238,7 @@ impl<'a> Ping<'a> {
             self.ident,
             self.seq_cnt,
             self.payload,
+            self.bind_device,
         );
     }
 }
