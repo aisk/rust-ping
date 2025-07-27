@@ -238,7 +238,10 @@ impl<'a> Ping<'a> {
             self.ident,
             self.seq_cnt,
             self.payload,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
             self.bind_device,
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            None,
         );
     }
 }

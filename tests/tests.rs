@@ -80,6 +80,7 @@ fn builder_api2() {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn bind_device() {
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
