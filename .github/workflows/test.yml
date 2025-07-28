@@ -36,3 +36,6 @@ jobs:
       - name: Run tests (macOS)
         if: runner.os == 'macOS'
         run: sudo cargo test --verbose
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: sudo -E env "PATH=$PATH" cargo test --verbose
