@@ -1,0 +1,41 @@
+name: Test
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: cargo test --verbose
+      - name: Run tests (macOS)
+        if: runner.os == 'macOS'
+        run: sudo cargo test --verbose
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: sudo -E env "PATH=$PATH" cargo test --verbose
