@@ -38,7 +38,7 @@ fn main() {
 
 ```
 
-To perform a ping using a domain name instead of an IP address, you can use any 3d-party DNS resolver or `ToSocketAddrs` from the standard library:
+To perform a ping using a domain name instead of an IP address, you can use any 3d-party DNS resolver or [`ToSocketAddrs`](https://doc.rust-lang.org/std/net/trait.ToSocketAddrs.html) from the standard library:
 
 ```rust
 fn main() {
