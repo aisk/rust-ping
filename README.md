@@ -38,6 +38,24 @@ fn main() {
 
 ```
 
+To perform a ping using a domain name instead of an IP address, you can use any 3rd-party DNS resolver or [`ToSocketAddrs`](https://doc.rust-lang.org/std/net/trait.ToSocketAddrs.html) from the standard library:
+
+```rust
+fn main() {
+    let address = "www.google.com:0"  // use any port, we only need the IP
+        .to_socket_addrs() // convert domain name to socket address iterator
+        .unwrap()
+        .next() // take the first socket address
+        .unwrap()
+        .ip(); // convert to IP
+
+    match ping::new(address).send() {
+        Ok(_) => println!("Ping successful!"),
+        Err(e) => eprintln!("Ping failed: {}", e),
+    }
+}
+```
+
 ## Socket Types: DGRAM vs. RAW
 
 Sending an ICMP package typically requires creating a `raw` socket, which often demands special privileges (e.g., running with `sudo` on Linux). This can introduce security risks.
