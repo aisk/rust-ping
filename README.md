@@ -42,7 +42,7 @@ To perform a ping using a domain name instead of an IP address, you can use any 
 
 ```rust
 fn main() {
-    let address = "www.google.com:0"
+    let address = "www.google.com:0"  // use any port, we only need the IP
         .to_socket_addrs() // convert domain name to socket address iterator
         .unwrap()
         .next() // take the first socket address
