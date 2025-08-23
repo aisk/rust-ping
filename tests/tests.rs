@@ -1,5 +1,16 @@
 use std::time::{Duration, SystemTime};
 use rand::random;
+use socket2::{Domain, Protocol, Socket, Type};
+use std::time::Duration;
+
+macro_rules! skip_if_no_capability {
+    () => {
+        if Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).is_err() {
+            eprintln!("Skipping test: raw socket capability not available");
+            return;
+        }
+    };
+}
 
 #[test]
 fn basic() {
@@ -34,6 +45,7 @@ fn basic_v6() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn basic_dgram() {
+    skip_if_no_capability!();
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     ping::dgramsock::ping(
@@ -50,6 +62,7 @@ fn basic_dgram() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn basic_dgram_v6() {
+    skip_if_no_capability!();
     let addr = "::1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     ping::dgramsock::ping(
@@ -65,6 +78,7 @@ fn basic_dgram_v6() {
 
 #[test]
 fn builder_api1() {
+    skip_if_no_capability!();
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     let mut pinger = ping::new(addr);
@@ -74,9 +88,24 @@ fn builder_api1() {
 
 #[test]
 fn builder_api2() {
+    skip_if_no_capability!();
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     ping::new(addr).timeout(timeout).ttl(42).send().unwrap();
+}
+
+#[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn bind_device() {
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    ping::new(addr)
+        .timeout(timeout)
+        .ttl(42)
+        .bind_device("lo")
+        .socket_type(ping::SocketType::RAW)
+        .send()
+        .unwrap();
 }
 
 #[test]
@@ -87,4 +116,3 @@ fn duration() {
     let time_start = SystemTime::now();
     let time_reply = ping::new(addr).timeout(timeout).ttl(42).send().unwrap();
     assert!(time_reply < SystemTime::now().duration_since(time_start).unwrap());
-}
