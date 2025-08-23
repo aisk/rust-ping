@@ -17,6 +17,10 @@ pub enum SocketType {
     DGRAM,
 }
 
+pub struct PingResult {
+    pub elapsed_time: Duration
+}
+
 fn ping_with_socktype(
     socket_type: Type,
     addr: IpAddr,
@@ -26,7 +30,7 @@ fn ping_with_socktype(
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
     bind_device: Option<&str>,
-) -> Result<(), Error> {
+) -> Result<PingResult, Error> {
     let time_start = SystemTime::now();
 
     let timeout = match timeout {
@@ -79,9 +83,9 @@ fn ping_with_socktype(
     socket.send_to(&mut buffer, &dest.into())?;
 
     // loop until either an echo with correct ident was received or timeout is over
-    let mut time_elapsed = Duration::from_secs(0);
+    let mut elapsed_time = Duration::from_secs(0);
     loop {
-        socket.set_read_timeout(Some(timeout - time_elapsed))?;
+        socket.set_read_timeout(Some(timeout - elapsed_time))?;
 
         let mut buffer: [u8; 2048] = [0; 2048];
         socket.read(&mut buffer)?;
@@ -103,17 +107,17 @@ fn ping_with_socktype(
         };
 
         // if ident is not correct check if timeout is over
-        time_elapsed = match SystemTime::now().duration_since(time_start) {
+        elapsed_time = match SystemTime::now().duration_since(time_start) {
             Ok(reply) => reply,
             Err(_) => return Err(Error::InternalError.into()),
         };
         
         if reply.ident == request.ident {
             // received correct ident
-            return Ok(time_elapsed);
+            return Ok(PingResult { elapsed_time });
         }
 
-        if time_elapsed >= timeout {
+        if elapsed_time >= timeout {
             let error = std::io::Error::new(std::io::ErrorKind::TimedOut, "Timeout occured");
             return Err(Error::IoError { error: (error) });
         }
@@ -129,8 +133,9 @@ pub mod rawsock {
         ident: Option<u16>,
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
-    ) -> Result<Duration, Error> {
-        return ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload, None);
+    ) -> Result<(), Error> {
+        ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload, None)?;
+        Ok(()) 
     }
 }
 
@@ -144,7 +149,8 @@ pub mod dgramsock {
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        return ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload, None);
+        ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload, None)?;
+        Ok(())
     }
 }
 
@@ -155,8 +161,9 @@ pub fn ping(
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
-) -> Result<Duration, Error> {
-    return rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload);
+) -> Result<(), Error> {
+    rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload)?;
+    Ok(())
 }
 
 pub struct Ping<'a> {
@@ -230,7 +237,7 @@ impl<'a> Ping<'a> {
         return self;
     }
 
-    pub fn send(&self) -> Result<(), Error> {
+    pub fn send(&self) -> Result<PingResult, Error> {
         return ping_with_socktype(
             self.socket_type,
             self.addr,
