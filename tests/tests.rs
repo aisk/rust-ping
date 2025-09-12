@@ -110,6 +110,7 @@ fn bind_device() {
 #[test]
 fn duration() {
     // Ensure that the duration returned is less than the time elapsed 
+    skip_if_no_capability!();
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     let time_start = SystemTime::now();
