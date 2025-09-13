@@ -1,6 +1,6 @@
+use std::time::{Duration, SystemTime};
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
-use std::time::Duration;
 
 macro_rules! skip_if_no_capability {
     () => {
@@ -105,4 +105,15 @@ fn bind_device() {
         .socket_type(ping::SocketType::RAW)
         .send()
         .unwrap();
+}
+
+#[test]
+fn duration() {
+    // Ensure that the duration returned is less than the time elapsed 
+    skip_if_no_capability!();
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    let time_start = SystemTime::now();
+    let time_reply = ping::new(addr).timeout(timeout).ttl(42).send().unwrap().elapsed_time;
+    assert!(time_reply < SystemTime::now().duration_since(time_start).unwrap());
 }
