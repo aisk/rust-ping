@@ -12,11 +12,13 @@ const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
 
+#[derive(Clone, Copy, Debug)]
 pub enum SocketType {
     RAW,
     DGRAM,
 }
 
+#[derive(Debug)]
 pub struct PingResult {
     pub elapsed_time: Duration
 }
