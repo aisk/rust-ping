@@ -11,3 +11,6 @@ edition = "2018"
 socket2 = { version = "0.6", features = ["all"] }
 thiserror = ">=1.0, <=2.1"
 rand = ">=0.8, <=0.9"
+
+[dev-dependencies]
+libc = "0.2"

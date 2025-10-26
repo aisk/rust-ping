@@ -11,8 +11,25 @@ macro_rules! skip_if_no_capability {
     };
 }
 
+#[cfg(not(target_os = "windows"))]
+macro_rules! skip_if_not_root {
+    () => {
+        if unsafe { libc::getuid() } != 0 {
+            eprintln!("Skipping test: requires root privileges on Unix-like systems");
+            return;
+        }
+    };
+}
+
+#[cfg(target_os = "windows")]
+macro_rules! skip_if_not_root {
+    () => {};
+}
+
 #[test]
 fn basic() {
+    skip_if_not_root!();
+
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     ping::ping(
@@ -28,6 +45,8 @@ fn basic() {
 
 #[test]
 fn basic_v6() {
+    skip_if_not_root!();
+
     let addr = "::1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     ping::ping(
