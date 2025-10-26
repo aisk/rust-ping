@@ -5,6 +5,8 @@ authors = ["AN Long <aisk1988@gmail.com>"]
 license = "MIT"
 description = "Simple and naive ping implementation in Rust."
 repository = "https://github.com/aisk/rust-ping"
+categories = ["network-programming", "os"]
+keywords = ["ping", "system", "ICMP"]
 edition = "2024"
 
 [dependencies]
