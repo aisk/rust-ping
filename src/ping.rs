@@ -20,7 +20,11 @@ pub enum SocketType {
 
 #[derive(Debug)]
 pub struct PingResult {
-    pub elapsed_time: Duration
+    pub elapsed_time: Duration,
+    pub ident: u16,
+    pub seq_cnt: u16,
+    pub payload: Vec<u8>,
+    pub target: IpAddr,
 }
 
 fn ping_with_socktype(
@@ -116,7 +120,13 @@ fn ping_with_socktype(
         
         if reply.ident == request.ident {
             // received correct ident
-            return Ok(PingResult { elapsed_time });
+            return Ok(PingResult {
+                elapsed_time,
+                ident: reply.ident,
+                seq_cnt: reply.seq_cnt,
+                payload: reply.payload.to_vec(),
+                target: addr,
+            });
         }
 
         if elapsed_time >= timeout {
