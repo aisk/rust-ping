@@ -64,7 +64,7 @@ fn ping_with_socktype(
     };
 
     if dest.is_ipv4() {
-        socket.set_ttl(ttl.unwrap_or(64))?;
+        socket.set_ttl_v4(ttl.unwrap_or(64))?;
     } else {
         socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
     }
