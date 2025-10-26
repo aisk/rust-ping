@@ -109,7 +109,7 @@ fn ping_with_socktype(
             match EchoReply::decode::<IcmpV6>(&buffer) {
                 Ok(reply) => reply,
                 Err(_) => continue,
-    }
+            }
         };
 
         // if ident is not correct check if timeout is over
@@ -117,7 +117,7 @@ fn ping_with_socktype(
             Ok(reply) => reply,
             Err(_) => return Err(Error::InternalError.into()),
         };
-        
+
         if reply.ident == request.ident {
             // received correct ident
             return Ok(PingResult {
@@ -147,7 +147,7 @@ pub mod rawsock {
         payload: Option<&Token>,
     ) -> Result<(), Error> {
         ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload, None)?;
-        Ok(()) 
+        Ok(())
     }
 }
 
@@ -161,7 +161,16 @@ pub mod dgramsock {
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        ping_with_socktype(Type::DGRAM, addr, timeout, ttl, ident, seq_cnt, payload, None)?;
+        ping_with_socktype(
+            Type::DGRAM,
+            addr,
+            timeout,
+            ttl,
+            ident,
+            seq_cnt,
+            payload,
+            None,
+        )?;
         Ok(())
     }
 }

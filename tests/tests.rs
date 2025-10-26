@@ -1,6 +1,6 @@
-use std::time::{Duration, SystemTime};
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
+use std::time::{Duration, SystemTime};
 
 macro_rules! skip_if_no_capability {
     () => {
@@ -133,7 +133,12 @@ fn duration() {
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     let time_start = SystemTime::now();
-    let time_reply = ping::new(addr).timeout(timeout).ttl(42).send().unwrap().elapsed_time;
+    let time_reply = ping::new(addr)
+        .timeout(timeout)
+        .ttl(42)
+        .send()
+        .unwrap()
+        .elapsed_time;
     assert!(time_reply < SystemTime::now().duration_since(time_start).unwrap());
 }
 
@@ -144,7 +149,9 @@ fn ping_result_fields() {
     let timeout = Duration::from_secs(1);
     let custom_ident = 12345;
     let custom_seq = 42;
-    let custom_payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
+    let custom_payload = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+    ];
 
     let result = ping::new(addr)
         .timeout(timeout)
