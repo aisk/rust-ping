@@ -5,7 +5,7 @@ authors = ["AN Long <aisk1988@gmail.com>"]
 license = "MIT"
 description = "Simple and naive ping implementation in Rust."
 repository = "https://github.com/aisk/rust-ping"
-edition = "2018"
+edition = "2024"
 
 [dependencies]
 socket2 = { version = "0.6", features = ["all"] }
