@@ -8,6 +8,6 @@ repository = "https://github.com/aisk/rust-ping"
 edition = "2018"
 
 [dependencies]
-socket2 = { version = "0.4", features = ["all"] }
+socket2 = { version = "0.6", features = ["all"] }
 thiserror = "1.0"
 rand = "0.8"
