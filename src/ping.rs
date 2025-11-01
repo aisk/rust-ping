@@ -19,6 +19,7 @@ pub enum SocketType {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct PingResult {
     pub elapsed_time: Duration,
     pub ident: u16,
