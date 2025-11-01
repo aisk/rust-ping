@@ -128,7 +128,7 @@ fn bind_device() {
 
 #[test]
 fn duration() {
-    // Ensure that the duration returned is less than the time elapsed
+    // Ensure that the duration returned is less than the rtt
     skip_if_no_capability!();
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
@@ -138,7 +138,7 @@ fn duration() {
         .ttl(42)
         .send()
         .unwrap()
-        .elapsed_time;
+        .rtt;
     assert!(time_reply < SystemTime::now().duration_since(time_start).unwrap());
 }
 
@@ -162,8 +162,8 @@ fn ping_result_fields() {
         .unwrap();
 
     // Test all fields in PingResult
-    assert!(result.elapsed_time >= Duration::from_secs(0));
-    assert!(result.elapsed_time <= timeout);
+    assert!(result.rtt >= Duration::from_secs(0));
+    assert!(result.rtt <= timeout);
 
     assert_eq!(result.ident, custom_ident);
     assert_eq!(result.seq_cnt, custom_seq);
@@ -195,8 +195,8 @@ fn ping_result_fields_v6() {
         .unwrap();
 
     // Test all fields in PingResult for IPv6
-    assert!(result.elapsed_time >= Duration::from_secs(0));
-    assert!(result.elapsed_time <= timeout);
+    assert!(result.rtt >= Duration::from_secs(0));
+    assert!(result.rtt <= timeout);
 
     assert_eq!(result.ident, custom_ident);
     assert_eq!(result.seq_cnt, custom_seq);
@@ -222,8 +222,8 @@ fn ping_result_raw_socket() {
         .unwrap();
 
     // Verify PingResult contains expected data
-    assert!(result.elapsed_time > Duration::from_secs(0));
-    assert!(result.elapsed_time < timeout);
+    assert!(result.rtt > Duration::from_secs(0));
+    assert!(result.rtt < timeout);
     assert_eq!(result.target, addr);
 
     // Verify ident and seq_cnt are reasonable values
