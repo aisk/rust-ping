@@ -6,7 +6,7 @@ use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::errors::Error;
-use crate::packet::{EchoReply, EchoRequest, IcmpV4, IcmpV6, IpV4Packet, ICMP_HEADER_SIZE};
+use crate::packet::{EchoReply, EchoRequest, ICMP_HEADER_SIZE, IcmpV4, IcmpV6, IpV4Packet};
 
 const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
