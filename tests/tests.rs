@@ -133,12 +133,7 @@ fn duration() {
     let addr = "127.0.0.1".parse().unwrap();
     let timeout = Duration::from_secs(1);
     let time_start = SystemTime::now();
-    let time_reply = ping::new(addr)
-        .timeout(timeout)
-        .ttl(42)
-        .send()
-        .unwrap()
-        .rtt;
+    let time_reply = ping::new(addr).timeout(timeout).ttl(42).send().unwrap().rtt;
     assert!(time_reply < SystemTime::now().duration_since(time_start).unwrap());
 }
 
