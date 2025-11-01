@@ -21,7 +21,7 @@ pub enum SocketType {
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct PingResult {
-    pub elapsed_time: Duration,
+    pub rtt: Duration,
     pub ident: u16,
     pub seq_cnt: u16,
     pub payload: Vec<u8>,
@@ -122,7 +122,7 @@ fn ping_with_socktype(
         if reply.ident == request.ident {
             // received correct ident
             return Ok(PingResult {
-                elapsed_time,
+                rtt: elapsed_time,
                 ident: reply.ident,
                 seq_cnt: reply.seq_cnt,
                 payload: reply.payload.to_vec(),
