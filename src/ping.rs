@@ -92,12 +92,8 @@ fn ping_with_socktype(
 
     // loop until either an echo with correct ident was received or timeout is over
     let mut elapsed_time = Duration::from_secs(0);
-    let mut first: bool = true;
     loop {
-        if first {
-            socket.set_read_timeout(Some(timeout - elapsed_time))?;
-            first = false;
-        }
+        socket.set_read_timeout(Some(timeout - elapsed_time))?;
 
         let mut buffer: [u8; 2048] = [0; 2048];
         let n = socket.read(&mut buffer)?;
