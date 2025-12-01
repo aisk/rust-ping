@@ -74,6 +74,7 @@ fn ping_with_socktype(
         socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
     }
 
+    #[allow(unused)]
     if let Some(device) = bind_device {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         {
@@ -91,20 +92,31 @@ fn ping_with_socktype(
 
     // loop until either an echo with correct ident was received or timeout is over
     let mut elapsed_time = Duration::from_secs(0);
+    let mut first: bool = true;
     loop {
-        socket.set_read_timeout(Some(timeout - elapsed_time))?;
+        if first {
+            socket.set_read_timeout(Some(timeout - elapsed_time))?;
+            first = false;
+        }
 
         let mut buffer: [u8; 2048] = [0; 2048];
-        socket.read(&mut buffer)?;
+        let n = socket.read(&mut buffer)?;
 
         let reply = if dest.is_ipv4() {
-            let ipv4_packet = match IpV4Packet::decode(&buffer) {
-                Ok(packet) => packet,
-                Err(_) => return Err(Error::DecodeV4Error.into()),
-            };
-            match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
-                Ok(reply) => reply,
-                Err(_) => continue,
+            if n == ECHO_REQUEST_BUFFER_SIZE {
+                match EchoReply::decode::<IcmpV4>(&buffer) {
+                    Ok(reply) => reply,
+                    Err(_) => continue,
+                }
+            } else {
+                let ipv4_packet = match IpV4Packet::decode(&buffer) {
+                    Ok(packet) => packet,
+                    Err(_) => return Err(Error::DecodeV4Error.into()),
+                };
+                match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
+                    Ok(reply) => reply,
+                    Err(_) => continue,
+                }
             }
         } else {
             match EchoReply::decode::<IcmpV6>(&buffer) {
@@ -119,7 +131,7 @@ fn ping_with_socktype(
             Err(_) => return Err(Error::InternalError.into()),
         };
 
-        if reply.ident == request.ident {
+        if reply.payload == request.payload {
             // received correct ident
             return Ok(PingResult {
                 rtt: elapsed_time,
