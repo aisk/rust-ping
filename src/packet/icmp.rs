@@ -80,8 +80,7 @@ impl<'a> EchoReply<'a> {
 
         let ident = (u16::from(buffer[4]) << 8) + u16::from(buffer[5]);
         let seq_cnt = (u16::from(buffer[6]) << 8) + u16::from(buffer[7]);
-
-        let payload = &buffer[HEADER_SIZE..];
+        let payload = &buffer[HEADER_SIZE..(HEADER_SIZE + 24)];
 
         Ok(EchoReply {
             ident,

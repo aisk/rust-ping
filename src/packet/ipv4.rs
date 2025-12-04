@@ -29,6 +29,7 @@ impl IpV4Protocol {
 }
 
 pub struct IpV4Packet<'a> {
+    #[allow(unused)]
     pub protocol: IpV4Protocol,
     pub data: &'a [u8],
 }
