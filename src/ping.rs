@@ -99,6 +99,7 @@ fn ping_with_socktype(
         let n = socket.read(&mut buffer)?;
 
         let reply = if dest.is_ipv4() {
+            // DGRAM socket on Linux may return pure ICMP packet without IP header.
             if n == ECHO_REQUEST_BUFFER_SIZE {
                 match EchoReply::decode::<IcmpV4>(&buffer) {
                     Ok(reply) => reply,
