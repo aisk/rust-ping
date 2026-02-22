@@ -1,4 +1,3 @@
-use std::io::Read;
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, SystemTime};
 
@@ -25,9 +24,16 @@ pub struct PingResult {
     pub ident: u16,
     pub seq_cnt: u16,
     pub payload: Vec<u8>,
+    /// The actual source IP address from the reply packet.
+    pub source: IpAddr,
+    #[deprecated(since = "0.7.1", note = "use `source` instead")]
     pub target: IpAddr,
+    /// The TTL from the reply IP header. Only available for IPv4 RAW sockets;
+    /// `None` for IPv4 DGRAM (Linux, no IP header) and all IPv6 responses.
+    pub ttl: Option<u8>,
 }
 
+#[allow(deprecated)]
 fn ping_with_socktype(
     socket_type: Type,
     addr: IpAddr,
@@ -56,7 +62,7 @@ fn ping_with_socktype(
         payload: payload.unwrap_or(default_payload),
     };
 
-    let mut socket = if dest.is_ipv4() {
+    let socket = if dest.is_ipv4() {
         if request.encode::<IcmpV4>(&mut buffer[..]).is_err() {
             return Err(Error::InternalError.into());
         }
@@ -96,8 +102,17 @@ fn ping_with_socktype(
         socket.set_read_timeout(Some(timeout - elapsed_time))?;
 
         let mut buffer: [u8; 2048] = [0; 2048];
-        let n = socket.read(&mut buffer)?;
+        // socket2 0.6 recv_from requires &mut [MaybeUninit<u8>]; cast is sound
+        // because MaybeUninit<u8> has the same layout as u8.
+        let (n, src_addr) = socket.recv_from(unsafe {
+            std::slice::from_raw_parts_mut(
+                buffer.as_mut_ptr() as *mut std::mem::MaybeUninit<u8>,
+                buffer.len(),
+            )
+        })?;
+        let source_ip = src_addr.as_socket().map(|s| s.ip()).unwrap_or(addr);
 
+        let mut recv_ttl: Option<u8> = None;
         let reply = if dest.is_ipv4() {
             // DGRAM socket on Linux may return pure ICMP packet without IP header.
             if n == ECHO_REQUEST_BUFFER_SIZE {
@@ -110,6 +125,7 @@ fn ping_with_socktype(
                     Ok(packet) => packet,
                     Err(_) => return Err(Error::DecodeV4Error.into()),
                 };
+                recv_ttl = Some(ipv4_packet.ttl);
                 match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
                     Ok(reply) => reply,
                     Err(_) => continue,
@@ -135,7 +151,9 @@ fn ping_with_socktype(
                 ident: reply.ident,
                 seq_cnt: reply.seq_cnt,
                 payload: reply.payload.to_vec(),
+                source: source_ip,
                 target: addr,
+                ttl: recv_ttl,
             });
         }
 
