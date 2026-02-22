@@ -31,6 +31,7 @@ impl IpV4Protocol {
 pub struct IpV4Packet<'a> {
     #[allow(unused)]
     pub protocol: IpV4Protocol,
+    pub ttl: u8,
     pub data: &'a [u8],
 }
 
@@ -56,8 +57,11 @@ impl<'a> IpV4Packet<'a> {
             None => return Err(Error::UnknownProtocol),
         };
 
+        let ttl = data[8];
+
         Ok(Self {
             protocol: protocol,
+            ttl,
             data: &data[header_size..],
         })
     }

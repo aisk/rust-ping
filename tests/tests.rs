@@ -164,7 +164,7 @@ fn ping_result_fields() {
     assert_eq!(result.seq_cnt, custom_seq);
     // Check that our custom payload starts the response payload
     assert!(result.payload.starts_with(&custom_payload));
-    assert_eq!(result.target, addr);
+    assert_eq!(result.source, addr);
 
     // Verify payload is not empty and contains our custom data
     assert!(!result.payload.is_empty());
@@ -195,7 +195,7 @@ fn ping_result_fields_v6() {
 
     assert_eq!(result.ident, custom_ident);
     assert_eq!(result.seq_cnt, custom_seq);
-    assert_eq!(result.target, addr);
+    assert_eq!(result.source, addr);
 
     // Verify payload is not empty (should be random if not specified)
     assert!(!result.payload.is_empty());
@@ -219,7 +219,7 @@ fn ping_result_raw_socket() {
     // Verify PingResult contains expected data
     assert!(result.rtt > Duration::from_secs(0));
     assert!(result.rtt < timeout);
-    assert_eq!(result.target, addr);
+    assert_eq!(result.source, addr);
 
     // Verify ident and seq_cnt are reasonable values
     assert!(result.ident > 0);
