@@ -228,3 +228,29 @@ fn ping_result_raw_socket() {
     // Verify payload exists
     assert!(result.payload.len() >= 24); // TOKEN_SIZE
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn system_ping_v4() {
+    let addr = "127.0.0.1".parse().unwrap();
+    let result = ping::new(addr)
+        .timeout(Duration::from_secs(2))
+        .socket_type(ping::SYSTEM)
+        .send()
+        .unwrap();
+    assert_eq!(result.source, addr);
+    assert!(result.rtt > Duration::from_secs(0));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn system_ping_v6() {
+    let addr = "::1".parse().unwrap();
+    let result = ping::new(addr)
+        .timeout(Duration::from_secs(2))
+        .socket_type(ping::SYSTEM)
+        .send()
+        .unwrap();
+    assert_eq!(result.source, addr);
+    assert!(result.rtt > Duration::from_secs(0));
+}
