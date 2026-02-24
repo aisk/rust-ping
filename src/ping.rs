@@ -15,6 +15,8 @@ type Token = [u8; TOKEN_SIZE];
 pub enum SocketType {
     RAW,
     DGRAM,
+    /// Call the system `ping`/`ping6` command instead of a raw socket.
+    SYSTEM,
 }
 
 #[derive(Debug)]
@@ -216,7 +218,7 @@ pub fn ping(
 }
 
 pub struct Ping<'a> {
-    socket_type: Type,
+    socket_type: SocketType,
     addr: IpAddr,
     timeout: Option<Duration>,
     ttl: Option<u32>,
@@ -230,13 +232,13 @@ pub struct Ping<'a> {
 impl<'a> Ping<'a> {
     pub fn new(addr: IpAddr) -> Self {
         let socket_type = if std::env::consts::OS == "windows" {
-            Type::RAW
+            SocketType::RAW
         } else {
-            Type::DGRAM
+            SocketType::DGRAM
         };
         return Ping {
-            socket_type: socket_type,
-            addr: addr,
+            socket_type,
+            addr,
             timeout: None,
             ttl: None,
             ident: None,
@@ -248,11 +250,24 @@ impl<'a> Ping<'a> {
     }
 
     pub fn socket_type(&mut self, socket_type: SocketType) -> &mut Self {
-        match socket_type {
-            SocketType::RAW => self.socket_type = Type::RAW,
-            SocketType::DGRAM => self.socket_type = Type::DGRAM,
-        }
+        self.socket_type = socket_type;
         return self;
+    }
+
+    fn ping_with_socket(&self, sock_type: Type) -> Result<PingResult, Error> {
+        ping_with_socktype(
+            sock_type,
+            self.addr,
+            self.timeout,
+            self.ttl,
+            self.ident,
+            self.seq_cnt,
+            self.payload,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            self.bind_device,
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            None,
+        )
     }
 
     pub fn timeout(&mut self, timeout: Duration) -> &mut Self {
@@ -287,22 +302,147 @@ impl<'a> Ping<'a> {
     }
 
     pub fn send(&self) -> Result<PingResult, Error> {
-        return ping_with_socktype(
-            self.socket_type,
-            self.addr,
-            self.timeout,
-            self.ttl,
-            self.ident,
-            self.seq_cnt,
-            self.payload,
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            self.bind_device,
-            #[cfg(not(any(target_os = "linux", target_os = "android")))]
-            None,
-        );
+        match self.socket_type {
+            SocketType::SYSTEM => ping_with_system_cmd(self.addr, self.timeout, self.ttl),
+            SocketType::RAW => self.ping_with_socket(Type::RAW),
+            SocketType::DGRAM => self.ping_with_socket(Type::DGRAM),
+        }
     }
 }
 
 pub fn new<'a>(addr: IpAddr) -> Ping<'a> {
     return Ping::new(addr);
+}
+
+#[cfg(target_os = "macos")]
+fn extract_float_field(line: &str, prefix: &str) -> Option<f64> {
+    let start = line.find(prefix)? + prefix.len();
+    let rest = &line[start..];
+    let end = rest.find(|c: char| !c.is_ascii_digit() && c != '.').unwrap_or(rest.len());
+    rest[..end].parse().ok()
+}
+
+#[cfg(target_os = "macos")]
+fn extract_u8_field(line: &str, prefix: &str) -> Option<u8> {
+    let start = line.find(prefix)? + prefix.len();
+    let rest = &line[start..];
+    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    rest[..end].parse().ok()
+}
+
+#[cfg(target_os = "macos")]
+fn extract_u16_field(line: &str, prefix: &str) -> Option<u16> {
+    let start = line.find(prefix)? + prefix.len();
+    let rest = &line[start..];
+    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    rest[..end].parse().ok()
+}
+
+#[cfg(target_os = "macos")]
+fn extract_source_ip(line: &str) -> Option<IpAddr> {
+    // Format variants:
+    //   "64 bytes from 8.8.8.8: icmp_seq=..."
+    //   "64 bytes from dns.google (8.8.8.8): icmp_seq=..."
+    //   "16 bytes from ::1%lo0: icmp_seq=..."
+    let after_from = line.find("bytes from ")? + "bytes from ".len();
+    let rest = &line[after_from..];
+
+    // If there's a parenthesised IP, prefer that.
+    let candidate = if let Some(open) = rest.find('(') {
+        let close = rest.find(')')?;
+        &rest[open + 1..close]
+    } else {
+        // Strip trailing ':'
+        let end = rest.find([':', ' ']).unwrap_or(rest.len());
+        &rest[..end]
+    };
+
+    // Strip IPv6 zone ID (e.g. "::1%lo0")
+    let candidate = match candidate.find('%') {
+        Some(pct) => &candidate[..pct],
+        None => candidate,
+    };
+
+    candidate.parse().ok()
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn ping_with_system_cmd(
+    addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
+) -> Result<PingResult, Error> {
+    use std::process::Command;
+
+    let time_start = SystemTime::now();
+
+    let output = if addr.is_ipv4() {
+        let mut cmd = Command::new("ping");
+        cmd.arg("-c").arg("1");
+        if let Some(t) = timeout {
+            cmd.arg("-W").arg(t.as_millis().to_string());
+        }
+        if let Some(t) = ttl {
+            cmd.arg("-m").arg(t.to_string());
+        }
+        cmd.arg(addr.to_string()).output()
+    } else {
+        let mut cmd = Command::new("ping6");
+        cmd.arg("-c").arg("1");
+        if let Some(t) = ttl {
+            cmd.arg("-h").arg(t.to_string());
+        }
+        cmd.arg(addr.to_string()).output()
+    }
+    .map_err(|e| Error::IoError { error: e })?;
+
+    if !output.status.success() {
+        let error = std::io::Error::new(std::io::ErrorKind::TimedOut, "ping command failed");
+        return Err(Error::IoError { error });
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    let reply_line = stdout
+        .lines()
+        .find(|line| line.contains("bytes from") && line.contains("time="))
+        .ok_or_else(|| {
+            let error =
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "failed to parse ping output");
+            Error::IoError { error }
+        })?;
+
+    let rtt_ms = extract_float_field(reply_line, "time=").ok_or_else(|| {
+        let error = std::io::Error::new(std::io::ErrorKind::InvalidData, "failed to parse RTT");
+        Error::IoError { error }
+    })?;
+
+    let seq_cnt = extract_u16_field(reply_line, "icmp_seq=").unwrap_or(0);
+    let reply_ttl = extract_u8_field(reply_line, "ttl=")
+        .or_else(|| extract_u8_field(reply_line, "hlim="));
+    let source = extract_source_ip(reply_line).unwrap_or(addr);
+
+    let elapsed = SystemTime::now()
+        .duration_since(time_start)
+        .unwrap_or(Duration::from_micros((rtt_ms * 1000.0) as u64));
+
+    Ok(PingResult {
+        rtt: elapsed,
+        ident: 0,
+        seq_cnt,
+        payload: vec![],
+        source,
+        target: addr,
+        ttl: reply_ttl,
+    })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ping_with_system_cmd(
+    _addr: IpAddr,
+    _timeout: Option<Duration>,
+    _ttl: Option<u32>,
+) -> Result<PingResult, Error> {
+    Err(Error::InvalidProtocol)
 }
