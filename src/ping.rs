@@ -217,6 +217,7 @@ pub fn ping(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 pub struct Ping<'a> {
     socket_type: SocketType,
     addr: IpAddr,
