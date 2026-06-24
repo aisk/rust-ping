@@ -132,7 +132,7 @@ fn ping_with_socktype(
         let reply = if dest.is_ipv4() {
             // DGRAM socket on Linux may return pure ICMP packet without IP header.
             if n == ECHO_REQUEST_BUFFER_SIZE {
-                match EchoReply::decode::<IcmpV4>(&buffer) {
+                match EchoReply::decode::<IcmpV4>(&buffer[..n]) {
                     Ok(reply) => reply,
                     Err(_) => continue,
                 }
@@ -140,7 +140,7 @@ fn ping_with_socktype(
                 // Skip undecodable IP packets (malformed, truncated, or
                 // unrelated ICMP traffic from other hosts on a RAW socket)
                 // instead of failing the whole ping; keep waiting for our reply.
-                let ipv4_packet = match IpV4Packet::decode(&buffer) {
+                let ipv4_packet = match IpV4Packet::decode(&buffer[..n]) {
                     Ok(packet) => packet,
                     Err(_) => continue,
                 };
@@ -151,7 +151,7 @@ fn ping_with_socktype(
                 }
             }
         } else {
-            match EchoReply::decode::<IcmpV6>(&buffer) {
+            match EchoReply::decode::<IcmpV6>(&buffer[..n]) {
                 Ok(reply) => reply,
                 Err(_) => continue,
             }
