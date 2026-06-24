@@ -30,6 +30,13 @@ impl From<SocketType> for Type {
 #[non_exhaustive]
 pub struct PingResult {
     pub rtt: Duration,
+    /// The ICMP identifier observed in the reply.
+    ///
+    /// This is not guaranteed to equal the value passed to [`Ping::ident`].
+    /// On unprivileged datagram sockets (the default on Linux and macOS) the
+    /// kernel overwrites the identifier with the socket's local port, so the
+    /// reply, and therefore this field, carries the kernel-chosen value rather
+    /// than the requested one.
     pub ident: u16,
     pub seq_cnt: u16,
     pub payload: Vec<u8>,
@@ -105,7 +112,7 @@ fn ping_with_socktype(
 
     socket.send_to(&mut buffer, &dest.into())?;
 
-    // loop until either an echo with correct ident was received or timeout is over
+    // loop until either an echo whose payload token matches was received or timeout is over
     let mut elapsed_time = Duration::from_secs(0);
     loop {
         socket.set_read_timeout(Some(timeout - elapsed_time))?;
@@ -147,14 +154,14 @@ fn ping_with_socktype(
             }
         };
 
-        // if ident is not correct check if timeout is over
+        // update elapsed time before deciding whether the payload token matches
         elapsed_time = match SystemTime::now().duration_since(time_start) {
             Ok(reply) => reply,
             Err(_) => return Err(Error::InternalError.into()),
         };
 
         if reply.payload == request.payload {
-            // received correct ident
+            // payload token matched: this reply belongs to our request
             return Ok(PingResult {
                 rtt: elapsed_time,
                 ident: reply.ident,
@@ -288,6 +295,15 @@ impl<'a> Ping<'a> {
         return self;
     }
 
+    /// Sets the ICMP identifier to send.
+    ///
+    /// When unset, a random identifier is generated for each ping.
+    ///
+    /// Note that on unprivileged datagram sockets (the default on Linux and
+    /// macOS) the kernel overwrites this field with the socket's local port,
+    /// so the value set here never reaches the wire and is not reflected in
+    /// [`PingResult::ident`]. It takes effect only on raw sockets (the default
+    /// on Windows, or when selected via [`Ping::socket_type`]).
     pub fn ident(&mut self, ident: u16) -> &mut Self {
         self.ident = Some(ident);
         return self;
