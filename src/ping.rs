@@ -11,9 +11,17 @@ const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
 
+/// The kind of socket used to send the ICMP request.
+///
+/// The default depends on the platform. On Windows [`Ping::new`] uses
+/// [`RAW`](SocketType::RAW), elsewhere it uses [`DGRAM`](SocketType::DGRAM).
+/// Override it with [`Ping::socket_type`].
 #[derive(Clone, Copy, Debug)]
 pub enum SocketType {
+    /// Raw socket. Needs elevated privileges (root, or `CAP_NET_RAW` on Linux).
     RAW,
+    /// Datagram socket. Works without elevated privileges on most systems, but
+    /// some Linux distributions disable it by default.
     DGRAM,
 }
 
@@ -26,9 +34,12 @@ impl From<SocketType> for Type {
     }
 }
 
+/// The outcome of a successful ping, returned by [`Ping::send`].
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct PingResult {
+    /// The measured round-trip time between sending the request and receiving
+    /// the matching reply.
     pub rtt: Duration,
     /// The ICMP identifier observed in the reply.
     ///
@@ -38,10 +49,14 @@ pub struct PingResult {
     /// reply, and therefore this field, carries the kernel-chosen value rather
     /// than the requested one.
     pub ident: u16,
+    /// The sequence number echoed back in the reply.
     pub seq_cnt: u16,
+    /// The payload token echoed back in the reply, used to match it to the
+    /// request.
     pub payload: Vec<u8>,
     /// The actual source IP address from the reply packet.
     pub source: IpAddr,
+    /// The target address passed to the ping.
     #[deprecated(since = "0.7.1", note = "use `source` instead")]
     pub target: IpAddr,
     /// The TTL from the reply IP header. Only available for IPv4 RAW sockets;
@@ -234,6 +249,16 @@ pub fn ping(
     Ok(())
 }
 
+/// Builder for a single ping.
+///
+/// Create one with [`Ping::new`] or [`new`], set any options, then call
+/// [`send`](Ping::send). All options are optional and have sensible defaults.
+///
+/// ```no_run
+/// let target = "8.8.8.8".parse().unwrap();
+/// let result = ping::new(target).send().expect("ping failed");
+/// println!("{:?}", result.rtt);
+/// ```
 #[derive(Debug, Clone)]
 pub struct Ping<'a> {
     socket_type: SocketType,
@@ -248,6 +273,9 @@ pub struct Ping<'a> {
 }
 
 impl<'a> Ping<'a> {
+    /// Creates a builder targeting `addr`, with the default socket type for
+    /// the current platform ([`RAW`](SocketType::RAW) on Windows,
+    /// [`DGRAM`](SocketType::DGRAM) elsewhere).
     pub fn new(addr: IpAddr) -> Self {
         let socket_type = if std::env::consts::OS == "windows" {
             SocketType::RAW
@@ -267,6 +295,8 @@ impl<'a> Ping<'a> {
         };
     }
 
+    /// Overrides the [`SocketType`] used to send the request, replacing the
+    /// platform default chosen by [`Ping::new`].
     pub fn socket_type(&mut self, socket_type: SocketType) -> &mut Self {
         self.socket_type = socket_type;
         return self;
@@ -288,11 +318,19 @@ impl<'a> Ping<'a> {
         )
     }
 
+    /// Sets how long [`send`](Ping::send) waits for a reply before failing.
+    ///
+    /// When unset, the timeout defaults to 4 seconds. On timeout, `send`
+    /// returns an [`Error::IoError`] whose kind is
+    /// [`ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut).
     pub fn timeout(&mut self, timeout: Duration) -> &mut Self {
         self.timeout = Some(timeout);
         return self;
     }
 
+    /// Sets the IP time-to-live (hop limit) of the request.
+    ///
+    /// Defaults to 64 when unset.
     pub fn ttl(&mut self, ttl: u32) -> &mut Self {
         self.ttl = Some(ttl);
         return self;
@@ -312,27 +350,47 @@ impl<'a> Ping<'a> {
         return self;
     }
 
+    /// Sets the ICMP sequence number of the request.
+    ///
+    /// Defaults to 1 when unset.
     pub fn seq_cnt(&mut self, seq_cnt: u16) -> &mut Self {
         self.seq_cnt = Some(seq_cnt);
         return self;
     }
 
+    /// Sets the 24-byte payload token carried by the request.
+    ///
+    /// The reply is matched to the request by this token, so it acts as the
+    /// correlation id. When unset, a random token is generated for each ping.
     pub fn payload(&mut self, payload: &'a Token) -> &mut Self {
         self.payload = Some(payload);
         return self;
     }
 
+    /// Binds the socket to a network interface by name (e.g. `"eth0"`), so the
+    /// request is sent from that interface.
+    ///
+    /// Only available on Linux and Android.
     #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn bind_device(&mut self, device: &'a str) -> &mut Self {
         self.bind_device = Some(device);
         return self;
     }
 
+    /// Sends the echo request and blocks until a matching reply arrives or the
+    /// timeout elapses.
+    ///
+    /// On success returns a [`PingResult`]. A timeout is reported as an
+    /// [`Error::IoError`] with kind
+    /// [`ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut).
     pub fn send(&self) -> Result<PingResult, Error> {
         self.ping_with_socket(self.socket_type.into())
     }
 }
 
+/// Creates a [`Ping`] builder targeting `addr`.
+///
+/// Shorthand for [`Ping::new`].
 pub fn new<'a>(addr: IpAddr) -> Ping<'a> {
     return Ping::new(addr);
 }
