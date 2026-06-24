@@ -4,6 +4,5 @@ mod ping;
 
 pub use crate::errors::Error;
 pub use crate::ping::{
-    Ping, PingResult, SocketType, SocketType::DGRAM, SocketType::RAW, dgramsock, new, ping,
-    rawsock,
+    Ping, PingResult, SocketType, SocketType::DGRAM, SocketType::RAW, dgramsock, new, ping, rawsock,
 };

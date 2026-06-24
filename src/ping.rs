@@ -17,6 +17,15 @@ pub enum SocketType {
     DGRAM,
 }
 
+impl From<SocketType> for Type {
+    fn from(socket_type: SocketType) -> Self {
+        match socket_type {
+            SocketType::RAW => Type::RAW,
+            SocketType::DGRAM => Type::DGRAM,
+        }
+    }
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct PingResult {
@@ -301,10 +310,7 @@ impl<'a> Ping<'a> {
     }
 
     pub fn send(&self) -> Result<PingResult, Error> {
-        match self.socket_type {
-            SocketType::RAW => self.ping_with_socket(Type::RAW),
-            SocketType::DGRAM => self.ping_with_socket(Type::DGRAM),
-        }
+        self.ping_with_socket(self.socket_type.into())
     }
 }
 
