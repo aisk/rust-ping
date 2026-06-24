@@ -137,9 +137,12 @@ fn ping_with_socktype(
                     Err(_) => continue,
                 }
             } else {
+                // Skip undecodable IP packets (malformed, truncated, or
+                // unrelated ICMP traffic from other hosts on a RAW socket)
+                // instead of failing the whole ping; keep waiting for our reply.
                 let ipv4_packet = match IpV4Packet::decode(&buffer) {
                     Ok(packet) => packet,
-                    Err(_) => return Err(Error::DecodeV4Error.into()),
+                    Err(_) => continue,
                 };
                 recv_ttl = Some(ipv4_packet.ttl);
                 match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {

@@ -2,6 +2,8 @@ use std::io::Write;
 use thiserror::Error;
 
 pub const HEADER_SIZE: usize = 8;
+/// Size of the correlation token carried as the echo payload.
+pub const PAYLOAD_SIZE: usize = 24;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -68,7 +70,7 @@ pub struct EchoReply<'a> {
 
 impl<'a> EchoReply<'a> {
     pub fn decode<P: Proto>(buffer: &'a [u8]) -> Result<Self, Error> {
-        if buffer.as_ref().len() < HEADER_SIZE {
+        if buffer.as_ref().len() < HEADER_SIZE + PAYLOAD_SIZE {
             return Err(Error::InvalidSize);
         }
 
@@ -80,7 +82,7 @@ impl<'a> EchoReply<'a> {
 
         let ident = (u16::from(buffer[4]) << 8) + u16::from(buffer[5]);
         let seq_cnt = (u16::from(buffer[6]) << 8) + u16::from(buffer[7]);
-        let payload = &buffer[HEADER_SIZE..(HEADER_SIZE + 24)];
+        let payload = &buffer[HEADER_SIZE..(HEADER_SIZE + PAYLOAD_SIZE)];
 
         Ok(EchoReply {
             ident,
