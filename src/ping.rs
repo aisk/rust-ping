@@ -237,6 +237,7 @@ pub mod dgramsock {
     }
 }
 
+#[deprecated(since = "0.8.0", note = "use `Ping::new` builder and `Ping::send` instead")]
 pub fn ping(
     addr: IpAddr,
     timeout: Option<Duration>,
