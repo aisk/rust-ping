@@ -54,6 +54,7 @@ mod packet;
 mod ping;
 
 pub use crate::errors::Error;
+#[allow(deprecated)]
 pub use crate::ping::{
     Ping, PingResult, SocketType, SocketType::DGRAM, SocketType::RAW, dgramsock, new, ping, rawsock,
 };
