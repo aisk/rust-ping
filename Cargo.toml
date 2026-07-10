@@ -1,7 +1,7 @@
 [package]
 name = "ping"
 version = "0.8.0"
-authors = ["AN Long <aisk1988@gmail.com>"]
+authors = ["An Long <aisk1988@gmail.com>"]
 license = "MIT"
 description = "Simple and naive ping implementation in Rust."
 repository = "https://github.com/aisk/rust-ping"
@@ -9,10 +9,16 @@ categories = ["network-programming", "os"]
 keywords = ["ping", "system", "ICMP"]
 edition = "2024"
 
+[features]
+default = []
+tokio = ["dep:tokio"]
+
 [dependencies]
 socket2 = { version = "0.6", features = ["all"] }
 thiserror = ">=1.0, <=2.1"
 rand = ">=0.8, <=0.9"
+tokio = { version = "1", features = ["net", "rt", "time"], optional = true }
 
 [dev-dependencies]
 libc = "0.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

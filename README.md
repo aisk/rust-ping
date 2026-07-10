@@ -38,6 +38,33 @@ fn main() {
 }
 ```
 
+## Optional Tokio support
+
+Tokio-based asynchronous sending is available behind the optional `tokio` feature. The feature is disabled by default, so synchronous users do not pull Tokio into their dependency graph.
+
+```toml
+[dependencies]
+ping = { version = "0.9", features = ["tokio"] }
+```
+
+```rust
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() {
+    let target_ip = "8.8.8.8".parse().unwrap();
+    let result = ping::new(target_ip)
+        .timeout(Duration::from_secs(2))
+        .send_async()
+        .await
+        .expect("ping failed");
+
+    println!("round-trip time: {:?}", result.rtt);
+}
+```
+
+On Unix, `send_async` uses a nonblocking socket registered with Tokio's reactor, so each in-flight ping does not occupy a thread. Windows currently uses Tokio's blocking task pool as a compatibility implementation; native asynchronous Windows socket support may be added in a future release.
+
 To perform a ping using a domain name instead of an IP address, you can use any 3rd-party DNS resolver or [`ToSocketAddrs`](https://doc.rust-lang.org/std/net/trait.ToSocketAddrs.html) from the standard library:
 
 ```rust
