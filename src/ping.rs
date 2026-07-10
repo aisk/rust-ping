@@ -17,6 +17,83 @@ fn remaining_timeout(started_at: Instant, timeout: Duration) -> std::io::Result<
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "ping request timed out"))
 }
 
+fn prepare_request(
+    addr: IpAddr,
+    ident: Option<u16>,
+    seq_cnt: Option<u16>,
+    payload: Option<&Token>,
+) -> Result<([u8; ECHO_REQUEST_BUFFER_SIZE], Token), Error> {
+    let payload = payload.copied().unwrap_or_else(random);
+    let request = EchoRequest {
+        ident: ident.unwrap_or_else(random),
+        seq_cnt: seq_cnt.unwrap_or(1),
+        payload: &payload,
+    };
+    let mut bytes = [0; ECHO_REQUEST_BUFFER_SIZE];
+
+    let encoded = if addr.is_ipv4() {
+        request.encode::<IcmpV4>(&mut bytes)
+    } else {
+        request.encode::<IcmpV6>(&mut bytes)
+    };
+    encoded.map_err(|_| Error::InternalError)?;
+
+    Ok((bytes, payload))
+}
+
+fn create_socket(
+    socket_type: Type,
+    addr: IpAddr,
+    ttl: Option<u32>,
+    bind_device: Option<&str>,
+) -> Result<Socket, Error> {
+    let socket = if addr.is_ipv4() {
+        Socket::new(Domain::IPV4, socket_type, Some(Protocol::ICMPV4))?
+    } else {
+        Socket::new(Domain::IPV6, socket_type, Some(Protocol::ICMPV6))?
+    };
+
+    if addr.is_ipv4() {
+        socket.set_ttl_v4(ttl.unwrap_or(64))?;
+    } else {
+        socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
+    }
+
+    #[allow(unused)]
+    if let Some(device) = bind_device {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        socket.bind_device(Some(device.as_bytes()))?;
+
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        eprintln!("Warning: bind_device is only supported on Linux and Android platforms");
+    }
+
+    Ok(socket)
+}
+
+fn decode_reply(addr: IpAddr, packet: &[u8]) -> Option<(EchoReply<'_>, Option<u8>)> {
+    if addr.is_ipv4() {
+        // DGRAM socket on Linux may return a pure ICMP packet without an IP header.
+        if packet.len() == ECHO_REQUEST_BUFFER_SIZE {
+            EchoReply::decode::<IcmpV4>(packet)
+                .ok()
+                .map(|reply| (reply, None))
+        } else {
+            // Ignore malformed, truncated, and unrelated packets while waiting
+            // for the reply that matches this request.
+            let ipv4_packet = IpV4Packet::decode(packet).ok()?;
+            let ttl = Some(ipv4_packet.ttl);
+            EchoReply::decode::<IcmpV4>(ipv4_packet.data)
+                .ok()
+                .map(|reply| (reply, ttl))
+        }
+    } else {
+        EchoReply::decode::<IcmpV6>(packet)
+            .ok()
+            .map(|reply| (reply, None))
+    }
+}
+
 /// The kind of socket used to send the ICMP request.
 ///
 /// The default depends on the platform. On Windows [`Ping::new`] uses
@@ -87,50 +164,13 @@ fn ping_with_socktype(
     };
 
     let dest = SocketAddr::new(addr, 0);
-    let mut buffer = [0; ECHO_REQUEST_BUFFER_SIZE];
-
-    let default_payload: &Token = &random();
-
-    let request = EchoRequest {
-        ident: ident.unwrap_or(random()),
-        seq_cnt: seq_cnt.unwrap_or(1),
-        payload: payload.unwrap_or(default_payload),
-    };
-
-    let socket = if dest.is_ipv4() {
-        if request.encode::<IcmpV4>(&mut buffer[..]).is_err() {
-            return Err(Error::InternalError.into());
-        }
-        Socket::new(Domain::IPV4, socket_type, Some(Protocol::ICMPV4))?
-    } else {
-        if request.encode::<IcmpV6>(&mut buffer[..]).is_err() {
-            return Err(Error::InternalError.into());
-        }
-        Socket::new(Domain::IPV6, socket_type, Some(Protocol::ICMPV6))?
-    };
-
-    if dest.is_ipv4() {
-        socket.set_ttl_v4(ttl.unwrap_or(64))?;
-    } else {
-        socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
-    }
-
-    #[allow(unused)]
-    if let Some(device) = bind_device {
-        #[cfg(any(target_os = "linux", target_os = "android"))]
-        {
-            socket.bind_device(Some(device.as_bytes()))?;
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "android")))]
-        {
-            eprintln!("Warning: bind_device is only supported on Linux and Android platforms");
-        }
-    }
+    let (request_bytes, request_payload) = prepare_request(addr, ident, seq_cnt, payload)?;
+    let socket = create_socket(socket_type, addr, ttl, bind_device)?;
 
     socket.set_write_timeout(Some(timeout))?;
 
     let started_at = Instant::now();
-    socket.send_to(&mut buffer, &dest.into())?;
+    socket.send_to(&request_bytes, &dest.into())?;
 
     // loop until either an echo whose payload token matches was received or timeout is over
     loop {
@@ -147,36 +187,11 @@ fn ping_with_socktype(
         })?;
         let source_ip = src_addr.as_socket().map(|s| s.ip()).unwrap_or(addr);
 
-        let mut recv_ttl: Option<u8> = None;
-        let reply = if dest.is_ipv4() {
-            // DGRAM socket on Linux may return pure ICMP packet without IP header.
-            if n == ECHO_REQUEST_BUFFER_SIZE {
-                match EchoReply::decode::<IcmpV4>(&buffer[..n]) {
-                    Ok(reply) => reply,
-                    Err(_) => continue,
-                }
-            } else {
-                // Skip undecodable IP packets (malformed, truncated, or
-                // unrelated ICMP traffic from other hosts on a RAW socket)
-                // instead of failing the whole ping; keep waiting for our reply.
-                let ipv4_packet = match IpV4Packet::decode(&buffer[..n]) {
-                    Ok(packet) => packet,
-                    Err(_) => continue,
-                };
-                recv_ttl = Some(ipv4_packet.ttl);
-                match EchoReply::decode::<IcmpV4>(ipv4_packet.data) {
-                    Ok(reply) => reply,
-                    Err(_) => continue,
-                }
-            }
-        } else {
-            match EchoReply::decode::<IcmpV6>(&buffer[..n]) {
-                Ok(reply) => reply,
-                Err(_) => continue,
-            }
+        let Some((reply, recv_ttl)) = decode_reply(addr, &buffer[..n]) else {
+            continue;
         };
 
-        if reply.payload == request.payload {
+        if reply.payload == request_payload {
             // payload token matched: this reply belongs to our request
             return Ok(PingResult {
                 rtt: started_at.elapsed(),
