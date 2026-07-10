@@ -150,7 +150,7 @@ pub struct PingResult {
     pub ttl: Option<u8>,
 }
 
-#[allow(deprecated)]
+#[allow(deprecated, clippy::too_many_arguments)]
 fn ping_with_socktype(
     socket_type: Type,
     addr: IpAddr,
@@ -297,7 +297,7 @@ impl<'a> Ping<'a> {
         } else {
             SocketType::DGRAM
         };
-        return Ping {
+        Ping {
             socket_type,
             addr,
             timeout: None,
@@ -307,14 +307,14 @@ impl<'a> Ping<'a> {
             payload: None,
             #[cfg(any(target_os = "linux", target_os = "android"))]
             bind_device: None,
-        };
+        }
     }
 
     /// Overrides the [`SocketType`] used to send the request, replacing the
     /// platform default chosen by [`Ping::new`].
     pub fn socket_type(&mut self, socket_type: SocketType) -> &mut Self {
         self.socket_type = socket_type;
-        return self;
+        self
     }
 
     fn ping_with_socket(&self, sock_type: Type) -> Result<PingResult, Error> {
@@ -340,7 +340,7 @@ impl<'a> Ping<'a> {
     /// [`ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut).
     pub fn timeout(&mut self, timeout: Duration) -> &mut Self {
         self.timeout = Some(timeout);
-        return self;
+        self
     }
 
     /// Sets the IP time-to-live (hop limit) of the request.
@@ -348,7 +348,7 @@ impl<'a> Ping<'a> {
     /// Defaults to 64 when unset.
     pub fn ttl(&mut self, ttl: u32) -> &mut Self {
         self.ttl = Some(ttl);
-        return self;
+        self
     }
 
     /// Sets the ICMP identifier to send.
@@ -362,7 +362,7 @@ impl<'a> Ping<'a> {
     /// on Windows, or when selected via [`Ping::socket_type`]).
     pub fn ident(&mut self, ident: u16) -> &mut Self {
         self.ident = Some(ident);
-        return self;
+        self
     }
 
     /// Sets the ICMP sequence number of the request.
@@ -370,7 +370,7 @@ impl<'a> Ping<'a> {
     /// Defaults to 1 when unset.
     pub fn seq_cnt(&mut self, seq_cnt: u16) -> &mut Self {
         self.seq_cnt = Some(seq_cnt);
-        return self;
+        self
     }
 
     /// Sets the 24-byte payload token carried by the request.
@@ -379,7 +379,7 @@ impl<'a> Ping<'a> {
     /// correlation id. When unset, a random token is generated for each ping.
     pub fn payload(&mut self, payload: &'a Token) -> &mut Self {
         self.payload = Some(payload);
-        return self;
+        self
     }
 
     /// Binds the socket to a network interface by name (e.g. `"eth0"`), so the
@@ -389,7 +389,7 @@ impl<'a> Ping<'a> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn bind_device(&mut self, device: &'a str) -> &mut Self {
         self.bind_device = Some(device);
-        return self;
+        self
     }
 
     /// Sends the echo request and blocks until a matching reply arrives or the
@@ -407,5 +407,5 @@ impl<'a> Ping<'a> {
 ///
 /// Shorthand for [`Ping::new`].
 pub fn new<'a>(addr: IpAddr) -> Ping<'a> {
-    return Ping::new(addr);
+    Ping::new(addr)
 }

@@ -60,7 +60,7 @@ impl<'a> IpV4Packet<'a> {
         let ttl = data[8];
 
         Ok(Self {
-            protocol: protocol,
+            protocol,
             ttl,
             data: &data[header_size..],
         })
