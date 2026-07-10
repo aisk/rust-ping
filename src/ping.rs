@@ -1,4 +1,6 @@
+use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
 use rand::random;
@@ -49,6 +51,7 @@ fn create_socket(
     addr: IpAddr,
     ttl: Option<u32>,
     bind_device: Option<&str>,
+    fwmark: Option<u32>,
 ) -> Result<Socket, Error> {
     let socket = if addr.is_ipv4() {
         Socket::new(Domain::IPV4, socket_type, Some(Protocol::ICMPV4))?
@@ -69,6 +72,25 @@ fn create_socket(
 
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         eprintln!("Warning: bind_device is only supported on Linux and Android platforms");
+    }
+
+    if let Some(fwmark) = fwmark {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if unsafe {
+            libc::setsockopt(
+                socket.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_MARK,
+                &fwmark as *const _ as *const _,
+                size_of_val(&fwmark) as libc::socklen_t,
+            )
+        } != 0
+        {
+            return Err(From::from(io::Error::last_os_error()));
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        eprintln!("Warning: fwmark is only supported on Linux and Android platforms");
     }
 
     Ok(socket)
@@ -160,6 +182,7 @@ fn ping_with_socktype(
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
     bind_device: Option<&str>,
+    fwmark: Option<u32>,
 ) -> Result<PingResult, Error> {
     let timeout = match timeout {
         Some(timeout) => timeout,
@@ -168,7 +191,7 @@ fn ping_with_socktype(
 
     let dest = SocketAddr::new(addr, 0);
     let (request_bytes, request_payload) = prepare_request(addr, ident, seq_cnt, payload)?;
-    let socket = create_socket(socket_type, addr, ttl, bind_device)?;
+    let socket = create_socket(socket_type, addr, ttl, bind_device, fwmark)?;
 
     socket.set_write_timeout(Some(timeout))?;
 
@@ -219,7 +242,17 @@ pub mod rawsock {
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload, None)?;
+        ping_with_socktype(
+            Type::RAW,
+            addr,
+            timeout,
+            ttl,
+            ident,
+            seq_cnt,
+            payload,
+            None,
+            None,
+        )?;
         Ok(())
     }
 }
@@ -242,6 +275,7 @@ pub mod dgramsock {
             ident,
             seq_cnt,
             payload,
+            None,
             None,
         )?;
         Ok(())
@@ -285,6 +319,8 @@ pub struct Ping<'a> {
     payload: Option<&'a Token>,
     #[cfg(any(target_os = "linux", target_os = "android"))]
     bind_device: Option<&'a str>,
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fwmark: Option<u32>,
 }
 
 impl<'a> Ping<'a> {
@@ -307,6 +343,8 @@ impl<'a> Ping<'a> {
             payload: None,
             #[cfg(any(target_os = "linux", target_os = "android"))]
             bind_device: None,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            fwmark: None,
         }
     }
 
@@ -328,6 +366,10 @@ impl<'a> Ping<'a> {
             self.payload,
             #[cfg(any(target_os = "linux", target_os = "android"))]
             self.bind_device,
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            None,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            self.fwmark,
             #[cfg(not(any(target_os = "linux", target_os = "android")))]
             None,
         )
@@ -389,6 +431,15 @@ impl<'a> Ping<'a> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     pub fn bind_device(&mut self, device: &'a str) -> &mut Self {
         self.bind_device = Some(device);
+        self
+    }
+
+    /// Sets the fwmark on the socket.
+    ///
+    /// Only available on Linux and Android.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn fwmark(&mut self, fwmark: u32) -> &mut Self {
+        self.fwmark = Some(fwmark);
         self
     }
 
