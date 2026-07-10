@@ -7,6 +7,9 @@ use socket2::{Domain, Protocol, Socket, Type};
 use crate::errors::Error;
 use crate::packet::{EchoReply, EchoRequest, ICMP_HEADER_SIZE, IcmpV4, IcmpV6, IpV4Packet};
 
+#[cfg(feature = "tokio")]
+mod async_ping;
+
 const TOKEN_SIZE: usize = 24;
 const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
 type Token = [u8; TOKEN_SIZE];
@@ -245,7 +248,10 @@ pub mod dgramsock {
     }
 }
 
-#[deprecated(since = "0.8.0", note = "use `Ping::new` builder and `Ping::send` instead")]
+#[deprecated(
+    since = "0.8.0",
+    note = "use `Ping::new` builder and `Ping::send` instead"
+)]
 pub fn ping(
     addr: IpAddr,
     timeout: Option<Duration>,

@@ -112,6 +112,23 @@ fn builder_api2() {
     ping::new(addr).timeout(timeout).ttl(42).send().unwrap();
 }
 
+#[cfg(feature = "tokio")]
+#[tokio::test]
+async fn async_builder_api() {
+    skip_if_no_capability!();
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    let result = ping::new(addr)
+        .timeout(timeout)
+        .ttl(42)
+        .send_async()
+        .await
+        .unwrap();
+
+    assert_eq!(result.source, addr);
+    assert!(result.rtt <= timeout);
+}
+
 #[test]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn bind_device() {
