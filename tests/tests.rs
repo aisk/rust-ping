@@ -144,6 +144,20 @@ fn bind_device() {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn fwmark() {
+    let addr = "127.0.0.1".parse().unwrap();
+    let timeout = Duration::from_secs(1);
+    ping::new(addr)
+        .timeout(timeout)
+        .ttl(42)
+        .fwmark(12345)
+        .socket_type(ping::SocketType::RAW)
+        .send()
+        .unwrap();
+}
+
+#[test]
 fn duration() {
     // Ensure that the duration returned is less than the rtt
     skip_if_no_capability!();
