@@ -512,3 +512,23 @@ impl Pinger {
         }
     }
 }
+
+/// Sends a single echo request to `target` and blocks until the matching reply
+/// arrives or `timeout` elapses.
+///
+/// A new socket is opened for every call. To ping repeatedly or to ping
+/// several targets, reuse a [`Pinger`] instead. Use a [`Pinger`] with a
+/// [`Request`] as well to set options such as the TTL or the payload.
+///
+/// ```no_run
+/// use std::net::IpAddr;
+/// use std::time::Duration;
+///
+/// let target: IpAddr = "8.8.8.8".parse().unwrap();
+/// let reply = ping::ping(target, Duration::from_secs(1))?;
+/// println!("rtt {:?} from {}", reply.rtt, reply.source);
+/// # Ok::<(), ping::Error>(())
+/// ```
+pub fn ping(target: IpAddr, timeout: Duration) -> Result<Reply, Error> {
+    Pinger::new().ping(target, timeout)
+}

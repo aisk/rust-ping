@@ -1,7 +1,8 @@
 //! Asynchronous pinger for Tokio, available with the `tokio` feature.
 //!
-//! [`Pinger`] is built the same way as the blocking [`crate::Pinger`] and uses
-//! the same [`Request`], [`Reply`] and [`Error`] types.
+//! [`ping()`] and [`Pinger`] mirror the blocking [`crate::ping()`] and
+//! [`crate::Pinger`], and use the same [`Request`], [`Reply`] and [`Error`]
+//! types.
 //!
 //! ```no_run
 //! use std::net::IpAddr;
@@ -20,6 +21,7 @@
 //! On Unix the sockets are registered with Tokio's reactor. On Windows each
 //! ping runs the blocking implementation on Tokio's blocking thread pool.
 
+use std::net::IpAddr;
 use std::time::Duration;
 
 #[cfg(unix)]
@@ -231,4 +233,26 @@ impl Pinger {
         self.inner = Some(inner);
         result
     }
+}
+
+/// Sends a single echo request to `target` and waits until the matching reply
+/// arrives or `timeout` elapses.
+///
+/// A new socket is opened for every call. To ping repeatedly or to ping
+/// several targets, reuse a [`Pinger`] instead.
+///
+/// ```no_run
+/// use std::net::IpAddr;
+/// use std::time::Duration;
+///
+/// # #[::tokio::main]
+/// # async fn main() -> Result<(), ping::Error> {
+/// let target: IpAddr = "8.8.8.8".parse().unwrap();
+/// let reply = ping::tokio::ping(target, Duration::from_secs(1)).await?;
+/// println!("rtt {:?} from {}", reply.rtt, reply.source);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn ping(target: IpAddr, timeout: Duration) -> Result<Reply, Error> {
+    Pinger::new().ping(target, timeout).await
 }

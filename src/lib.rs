@@ -5,8 +5,21 @@
 //!
 //! # Quick start
 //!
-//! Create a [`Pinger`] and call [`Pinger::ping`] with a target and a timeout.
-//! The pinger keeps its sockets open, so reuse it for repeated pings.
+//! For a one off ping, call [`ping()`] with a target and a timeout.
+//!
+//! ```no_run
+//! use std::net::IpAddr;
+//! use std::time::Duration;
+//!
+//! let target: IpAddr = "8.8.8.8".parse().unwrap();
+//! let reply = ping::ping(target, Duration::from_secs(1))?;
+//! println!("rtt {:?} from {}", reply.rtt, reply.source);
+//! # Ok::<(), ping::Error>(())
+//! ```
+//!
+//! [`ping()`] opens a new socket every time. To ping repeatedly, create a
+//! [`Pinger`] and call [`Pinger::ping`] instead. The pinger keeps its sockets
+//! open between pings.
 //!
 //! ```no_run
 //! use std::net::IpAddr;
@@ -55,7 +68,7 @@
 //!     .unwrap()
 //!     .ip();
 //!
-//! ping::Pinger::new().ping(addr, Duration::from_secs(1))?;
+//! ping::ping(addr, Duration::from_secs(1))?;
 //! # Ok::<(), ping::Error>(())
 //! ```
 //!
@@ -67,8 +80,8 @@
 //!
 //! # Tokio
 //!
-//! With the `tokio` feature, `ping::tokio::Pinger` provides the same API with an
-//! `async` ping.
+//! With the `tokio` feature, `ping::tokio::ping` and `ping::tokio::Pinger`
+//! provide the same API with an `async` ping.
 //!
 //! [`IpAddr`]: std::net::IpAddr
 
@@ -84,8 +97,8 @@ pub mod tokio;
 pub use crate::errors::Error;
 pub use crate::ping::SocketType;
 #[allow(deprecated)]
-pub use crate::ping::{Ping, PingResult, dgramsock, new, ping, rawsock};
-pub use crate::pinger::{Pinger, PingerBuilder, Reply, Request};
+pub use crate::ping::{Ping, PingResult, dgramsock, new, rawsock};
+pub use crate::pinger::{Pinger, PingerBuilder, Reply, Request, ping};
 
 #[doc(hidden)]
 #[deprecated(since = "0.10.0", note = "use `SocketType::RAW` instead")]

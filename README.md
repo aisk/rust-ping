@@ -8,7 +8,7 @@ Ping function implemented in rust.
 
 ## Usage
 
-Create a `Pinger` and call `ping` with a target address and a timeout. The pinger keeps its sockets open, so reuse it when pinging repeatedly or pinging several hosts.
+For a one off ping, call `ping` with a target address and a timeout:
 
 ```rust
 use std::net::IpAddr;
@@ -16,15 +16,14 @@ use std::time::Duration;
 
 fn main() {
     let target: IpAddr = "8.8.8.8".parse().unwrap();
-    let mut pinger = ping::Pinger::new();
-    match pinger.ping(target, Duration::from_secs(1)) {
+    match ping::ping(target, Duration::from_secs(1)) {
         Ok(reply) => println!("rtt {:?} from {}", reply.rtt, reply.source),
         Err(e) => eprintln!("Ping failed: {}", e),
     }
 }
 ```
 
-The same pinger works for both IPv4 and IPv6 targets. A timeout is reported as `Error::Timeout`:
+The `ping` function opens a new socket every time. When pinging repeatedly or pinging several hosts, create a `Pinger` and reuse it, since it keeps its sockets open. The same pinger works for both IPv4 and IPv6 targets. A timeout is reported as `Error::Timeout`:
 
 ```rust
 use std::net::IpAddr;
@@ -81,7 +80,7 @@ fn main() {
         .unwrap()
         .ip(); // convert to IP
 
-    match ping::Pinger::new().ping(address, Duration::from_secs(1)) {
+    match ping::ping(address, Duration::from_secs(1)) {
         Ok(_) => println!("Ping successful!"),
         Err(e) => eprintln!("Ping failed: {}", e),
     }
@@ -97,7 +96,23 @@ Tokio-based asynchronous pinging is available behind the optional `tokio` featur
 ping = { version = "0.9", features = ["tokio"] }
 ```
 
-`ping::tokio::Pinger` is built the same way as `ping::Pinger` and uses the same `Request`, `Reply` and `Error` types, but `ping` is an `async fn`:
+`ping::tokio::ping` and `ping::tokio::Pinger` work like `ping::ping` and `ping::Pinger` and use the same `Request`, `Reply` and `Error` types, but pinging is `async`:
+
+```rust
+use std::net::IpAddr;
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() {
+    let target: IpAddr = "8.8.8.8".parse().unwrap();
+    match ping::tokio::ping(target, Duration::from_secs(1)).await {
+        Ok(reply) => println!("rtt {:?} from {}", reply.rtt, reply.source),
+        Err(e) => eprintln!("Ping failed: {}", e),
+    }
+}
+```
+
+Reuse a `ping::tokio::Pinger` when pinging repeatedly:
 
 ```rust
 use std::net::IpAddr;
