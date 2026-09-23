@@ -32,11 +32,13 @@ use ::tokio::io::unix::AsyncFd;
 #[cfg(unix)]
 use socket2::Socket;
 
-use crate::SocketType;
 use crate::errors::Error;
 #[cfg(unix)]
 use crate::errors::io_error;
-use crate::pinger::{self, Config, Reply, Request};
+use crate::pinger::{self, Reply, Request, SocketType};
+use crate::socket::Config;
+#[cfg(unix)]
+use crate::socket::{FamilyState, check_payload, recv_from};
 
 /// Builder for an asynchronous [`Pinger`].
 ///
@@ -97,9 +99,9 @@ impl PingerBuilder {
 pub struct Pinger {
     config: Config,
     #[cfg(unix)]
-    v4: Option<(AsyncFd<Socket>, pinger::FamilyState)>,
+    v4: Option<(AsyncFd<Socket>, FamilyState)>,
     #[cfg(unix)]
-    v6: Option<(AsyncFd<Socket>, pinger::FamilyState)>,
+    v6: Option<(AsyncFd<Socket>, FamilyState)>,
     #[cfg(not(unix))]
     inner: Option<crate::Pinger>,
 }
@@ -156,7 +158,7 @@ impl Pinger {
         timeout: Duration,
     ) -> Result<Reply, Error> {
         let request = request.into();
-        pinger::check_payload(&request)?;
+        check_payload(&request)?;
 
         let v6 = request.target.is_ipv6();
         let slot = if v6 { &mut self.v6 } else { &mut self.v4 };
@@ -188,8 +190,7 @@ impl Pinger {
 
             loop {
                 let mut ready = socket.readable().await.map_err(io_error)?;
-                let received =
-                    ready.try_io(|inner| pinger::recv_from(inner.get_ref(), &mut state.buffer));
+                let received = ready.try_io(|inner| recv_from(inner.get_ref(), &mut state.buffer));
                 let (n, source) = match received {
                     Ok(result) => result.map_err(io_error)?,
                     Err(_would_block) => continue,
