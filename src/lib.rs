@@ -73,6 +73,8 @@
 //! [`IpAddr`]: std::net::IpAddr
 
 mod errors;
+// Copied from tokio-ping, so unused parts are kept.
+#[allow(dead_code, unused_imports)]
 mod packet;
 mod ping;
 mod pinger;

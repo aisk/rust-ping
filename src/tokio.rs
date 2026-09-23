@@ -119,7 +119,7 @@ impl Pinger {
         PingerBuilder::new()
     }
 
-    fn from_config(config: Config) -> Self {
+    pub(crate) fn from_config(config: Config) -> Self {
         Pinger {
             config,
             #[cfg(unix)]
@@ -129,6 +129,18 @@ impl Pinger {
             #[cfg(not(unix))]
             inner: None,
         }
+    }
+
+    /// Returns the ICMP identifier of an address family once its socket is
+    /// open.
+    pub(crate) fn ident(&self, v6: bool) -> Option<u16> {
+        #[cfg(unix)]
+        {
+            let slot = if v6 { &self.v6 } else { &self.v4 };
+            slot.as_ref().map(|(_, state)| state.ident)
+        }
+        #[cfg(not(unix))]
+        self.inner.as_ref()?.ident(v6)
     }
 
     /// Sends an echo request and waits until the matching reply arrives or
