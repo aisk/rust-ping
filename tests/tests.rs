@@ -179,7 +179,10 @@ fn ping_result_fields() {
     assert!(result.rtt >= Duration::from_secs(0));
     assert!(result.rtt <= timeout);
 
-    assert_eq!(result.ident, custom_ident);
+    // Linux ping sockets ignore the requested identifier.
+    if cfg!(not(any(target_os = "linux", target_os = "android"))) {
+        assert_eq!(result.ident, custom_ident);
+    }
     assert_eq!(result.seq_cnt, custom_seq);
     // Check that our custom payload starts the response payload
     assert!(result.payload.starts_with(&custom_payload));
@@ -212,7 +215,10 @@ fn ping_result_fields_v6() {
     assert!(result.rtt >= Duration::from_secs(0));
     assert!(result.rtt <= timeout);
 
-    assert_eq!(result.ident, custom_ident);
+    // Linux ping sockets ignore the requested identifier.
+    if cfg!(not(any(target_os = "linux", target_os = "android"))) {
+        assert_eq!(result.ident, custom_ident);
+    }
     assert_eq!(result.seq_cnt, custom_seq);
     assert_eq!(result.source, addr);
 
@@ -246,4 +252,28 @@ fn ping_result_raw_socket() {
 
     // Verify payload exists
     assert!(result.payload.len() >= 24); // TOKEN_SIZE
+}
+
+#[test]
+fn timeout_error_kind() {
+    skip_if_no_capability!();
+    let addr = "127.0.0.1".parse().unwrap();
+    let error = ping::new(addr)
+        .timeout(Duration::from_nanos(1))
+        .send()
+        .unwrap_err();
+    assert!(
+        matches!(&error, ping::Error::IoError { error } if error.kind() == std::io::ErrorKind::TimedOut),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn ttl_out_of_range() {
+    let addr = "127.0.0.1".parse().unwrap();
+    let error = ping::new(addr).ttl(256).send().unwrap_err();
+    assert!(
+        matches!(&error, ping::Error::IoError { error } if error.kind() == std::io::ErrorKind::InvalidInput),
+        "{error:?}"
+    );
 }

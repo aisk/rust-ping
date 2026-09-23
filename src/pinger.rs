@@ -210,7 +210,7 @@ impl Config {
 /// Per address family state of a pinger, apart from the socket itself.
 pub(crate) struct FamilyState {
     v6: bool,
-    ident: u16,
+    pub(crate) ident: u16,
     has_ip_header: bool,
     /// The TTL currently set on the socket.
     ttl: u8,
@@ -453,6 +453,13 @@ impl Pinger {
             v4: None,
             v6: None,
         }
+    }
+
+    /// Returns the ICMP identifier of an address family once its socket is
+    /// open.
+    pub(crate) fn ident(&self, v6: bool) -> Option<u16> {
+        let slot = if v6 { &self.v6 } else { &self.v4 };
+        slot.as_ref().map(|(_, state)| state.ident)
     }
 
     /// Sends an echo request and blocks until the matching reply arrives or

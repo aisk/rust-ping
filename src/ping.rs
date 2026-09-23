@@ -1,103 +1,83 @@
-// The legacy API is kept unchanged until it is removed.
+// The legacy API is kept until it is removed.
 #![allow(deprecated)]
 
-use std::net::{IpAddr, SocketAddr};
-use std::time::{Duration, Instant};
+use std::net::IpAddr;
+use std::time::Duration;
 
-use rand::random;
-use socket2::{Domain, Protocol, Socket, Type};
+use socket2::Type;
 
 use crate::errors::Error;
-use crate::packet::{EchoReply, EchoRequest, ICMP_HEADER_SIZE, IcmpV4, IcmpV6, IpV4Packet};
+use crate::pinger::{PingerBuilder, Reply, Request};
 
 #[cfg(feature = "tokio")]
 mod async_ping;
 
 const TOKEN_SIZE: usize = 24;
-const ECHO_REQUEST_BUFFER_SIZE: usize = ICMP_HEADER_SIZE + TOKEN_SIZE;
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(4);
 type Token = [u8; TOKEN_SIZE];
 
-fn remaining_timeout(started_at: Instant, timeout: Duration) -> std::io::Result<Duration> {
-    timeout
-        .checked_sub(started_at.elapsed())
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "ping request timed out"))
+/// A legacy ping translated into a pinger configuration and a request.
+struct Legacy {
+    builder: PingerBuilder,
+    request: Request,
+    timeout: Duration,
 }
 
-fn prepare_request(
+impl Legacy {
+    fn send(self) -> Result<PingResult, Error> {
+        let target = self.request.target;
+        let mut pinger = self.builder.build()?;
+        let result = pinger.ping(self.request, self.timeout);
+        finish(result, pinger.ident(target.is_ipv6()), target)
+    }
+}
+
+/// Converts the outcome of a ping to what the legacy API returned.
+fn finish(
+    result: Result<Reply, Error>,
+    ident: Option<u16>,
+    target: IpAddr,
+) -> Result<PingResult, Error> {
+    let reply = result.map_err(|error| match error {
+        Error::Timeout => Error::from(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "ping request timed out",
+        )),
+        error => error,
+    })?;
+    Ok(PingResult {
+        rtt: reply.rtt,
+        ident: ident.ok_or(Error::InternalError)?,
+        seq_cnt: reply.seq,
+        payload: reply.payload,
+        source: reply.source,
+        target,
+        ttl: reply.ttl,
+    })
+}
+
+fn ping_with_socktype(
+    socket_type: SocketType,
     addr: IpAddr,
+    timeout: Option<Duration>,
+    ttl: Option<u32>,
     ident: Option<u16>,
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
-) -> Result<([u8; ECHO_REQUEST_BUFFER_SIZE], Token), Error> {
-    let payload = payload.copied().unwrap_or_else(random);
-    let request = EchoRequest {
-        ident: ident.unwrap_or_else(random),
-        seq_cnt: seq_cnt.unwrap_or(1),
-        payload: &payload,
-    };
-    let mut bytes = [0; ECHO_REQUEST_BUFFER_SIZE];
-
-    let encoded = if addr.is_ipv4() {
-        request.encode::<IcmpV4>(&mut bytes)
-    } else {
-        request.encode::<IcmpV6>(&mut bytes)
-    };
-    encoded.map_err(|_| Error::InternalError)?;
-
-    Ok((bytes, payload))
-}
-
-fn create_socket(
-    socket_type: Type,
-    addr: IpAddr,
-    ttl: Option<u32>,
-    bind_device: Option<&str>,
-) -> Result<Socket, Error> {
-    let socket = if addr.is_ipv4() {
-        Socket::new(Domain::IPV4, socket_type, Some(Protocol::ICMPV4))?
-    } else {
-        Socket::new(Domain::IPV6, socket_type, Some(Protocol::ICMPV6))?
-    };
-
-    if addr.is_ipv4() {
-        socket.set_ttl_v4(ttl.unwrap_or(64))?;
-    } else {
-        socket.set_unicast_hops_v6(ttl.unwrap_or(64))?;
-    }
-
-    #[allow(unused)]
-    if let Some(device) = bind_device {
+) -> Result<(), Error> {
+    Ping {
+        socket_type,
+        addr,
+        timeout,
+        ttl,
+        ident,
+        seq_cnt,
+        payload,
         #[cfg(any(target_os = "linux", target_os = "android"))]
-        socket.bind_device(Some(device.as_bytes()))?;
-
-        #[cfg(not(any(target_os = "linux", target_os = "android")))]
-        eprintln!("Warning: bind_device is only supported on Linux and Android platforms");
+        bind_device: None,
     }
-
-    Ok(socket)
-}
-
-fn decode_reply(addr: IpAddr, packet: &[u8]) -> Option<(EchoReply<'_>, Option<u8>)> {
-    if addr.is_ipv4() {
-        // DGRAM socket on Linux may return a pure ICMP packet without an IP header.
-        if packet.len() == ECHO_REQUEST_BUFFER_SIZE {
-            EchoReply::decode::<IcmpV4>(packet)
-                .ok()
-                .map(|reply| (reply, None))
-        } else {
-            // Ignore malformed, truncated, and unrelated packets while waiting
-            // for the reply that matches this request.
-            let ipv4_packet = IpV4Packet::decode(packet).ok()?;
-            let ttl = Some(ipv4_packet.ttl);
-            EchoReply::decode::<IcmpV4>(ipv4_packet.data)
-                .ok()
-                .map(|reply| (reply, ttl))
-        }
-    } else {
-        EchoReply::decode::<IcmpV6>(packet)
-            .ok()
-            .map(|reply| (reply, None))
-    }
+    .send()?;
+    Ok(())
 }
 
 /// The kind of socket used to send the ICMP request.
@@ -157,65 +137,6 @@ pub struct PingResult {
     pub ttl: Option<u8>,
 }
 
-#[allow(deprecated)]
-fn ping_with_socktype(
-    socket_type: Type,
-    addr: IpAddr,
-    timeout: Option<Duration>,
-    ttl: Option<u32>,
-    ident: Option<u16>,
-    seq_cnt: Option<u16>,
-    payload: Option<&Token>,
-    bind_device: Option<&str>,
-) -> Result<PingResult, Error> {
-    let timeout = match timeout {
-        Some(timeout) => timeout,
-        None => Duration::from_secs(4),
-    };
-
-    let dest = SocketAddr::new(addr, 0);
-    let (request_bytes, request_payload) = prepare_request(addr, ident, seq_cnt, payload)?;
-    let socket = create_socket(socket_type, addr, ttl, bind_device)?;
-
-    socket.set_write_timeout(Some(timeout))?;
-
-    let started_at = Instant::now();
-    socket.send_to(&request_bytes, &dest.into())?;
-
-    // loop until either an echo whose payload token matches was received or timeout is over
-    loop {
-        socket.set_read_timeout(Some(remaining_timeout(started_at, timeout)?))?;
-
-        let mut buffer: [u8; 2048] = [0; 2048];
-        // socket2 0.6 recv_from requires &mut [MaybeUninit<u8>]; cast is sound
-        // because MaybeUninit<u8> has the same layout as u8.
-        let (n, src_addr) = socket.recv_from(unsafe {
-            std::slice::from_raw_parts_mut(
-                buffer.as_mut_ptr() as *mut std::mem::MaybeUninit<u8>,
-                buffer.len(),
-            )
-        })?;
-        let source_ip = src_addr.as_socket().map(|s| s.ip()).unwrap_or(addr);
-
-        let Some((reply, recv_ttl)) = decode_reply(addr, &buffer[..n]) else {
-            continue;
-        };
-
-        if reply.payload == request_payload {
-            // payload token matched: this reply belongs to our request
-            return Ok(PingResult {
-                rtt: started_at.elapsed(),
-                ident: reply.ident,
-                seq_cnt: reply.seq_cnt,
-                payload: reply.payload.to_vec(),
-                source: source_ip,
-                target: addr,
-                ttl: recv_ttl,
-            });
-        }
-    }
-}
-
 #[doc(hidden)]
 pub mod rawsock {
     use super::*;
@@ -228,8 +149,7 @@ pub mod rawsock {
         seq_cnt: Option<u16>,
         payload: Option<&Token>,
     ) -> Result<(), Error> {
-        ping_with_socktype(Type::RAW, addr, timeout, ttl, ident, seq_cnt, payload, None)?;
-        Ok(())
+        ping_with_socktype(SocketType::RAW, addr, timeout, ttl, ident, seq_cnt, payload)
     }
 }
 
@@ -246,16 +166,14 @@ pub mod dgramsock {
         payload: Option<&Token>,
     ) -> Result<(), Error> {
         ping_with_socktype(
-            Type::DGRAM,
+            SocketType::DGRAM,
             addr,
             timeout,
             ttl,
             ident,
             seq_cnt,
             payload,
-            None,
-        )?;
-        Ok(())
+        )
     }
 }
 
@@ -269,8 +187,7 @@ pub fn ping(
     seq_cnt: Option<u16>,
     payload: Option<&Token>,
 ) -> Result<(), Error> {
-    rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload)?;
-    Ok(())
+    rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload)
 }
 
 /// Builder for a single ping.
@@ -326,22 +243,6 @@ impl<'a> Ping<'a> {
     pub fn socket_type(&mut self, socket_type: SocketType) -> &mut Self {
         self.socket_type = socket_type;
         return self;
-    }
-
-    fn ping_with_socket(&self, sock_type: Type) -> Result<PingResult, Error> {
-        ping_with_socktype(
-            sock_type,
-            self.addr,
-            self.timeout,
-            self.ttl,
-            self.ident,
-            self.seq_cnt,
-            self.payload,
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            self.bind_device,
-            #[cfg(not(any(target_os = "linux", target_os = "android")))]
-            None,
-        )
     }
 
     /// Sets how long [`send`](Ping::send) waits for a reply before failing.
@@ -410,7 +311,39 @@ impl<'a> Ping<'a> {
     /// [`Error::IoError`] with kind
     /// [`ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut).
     pub fn send(&self) -> Result<PingResult, Error> {
-        self.ping_with_socket(self.socket_type.into())
+        self.legacy()?.send()
+    }
+
+    fn legacy(&self) -> Result<Legacy, Error> {
+        let mut builder = PingerBuilder::new().socket_type(self.socket_type);
+        // Linux ping sockets always ignored the identifier here. Binding to it
+        // instead could clash with other pings using the same one.
+        let ignores_ident = cfg!(any(target_os = "linux", target_os = "android"))
+            && self.socket_type == SocketType::DGRAM;
+        if let Some(ident) = self.ident.filter(|_| !ignores_ident) {
+            builder = builder.ident(ident);
+        }
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if let Some(device) = self.bind_device {
+            builder = builder.bind_device(device);
+        }
+
+        let token = self.payload.copied().unwrap_or_else(rand::random);
+        let mut request = Request::new(self.addr)
+            .seq(self.seq_cnt.unwrap_or(1))
+            .payload(token.to_vec());
+        if let Some(ttl) = self.ttl {
+            let ttl = u8::try_from(ttl).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, "ttl out of range")
+            })?;
+            request = request.ttl(ttl);
+        }
+
+        Ok(Legacy {
+            builder,
+            request,
+            timeout: self.timeout.unwrap_or(DEFAULT_TIMEOUT),
+        })
     }
 }
 
