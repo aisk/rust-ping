@@ -57,6 +57,16 @@ fn ping_v6() {
 }
 
 #[test]
+fn ping_function() {
+    for target in [v4(), v6()] {
+        if !any_available(target) {
+            continue;
+        }
+        assert_eq!(ping::ping(target, TIMEOUT).unwrap().source, target);
+    }
+}
+
+#[test]
 fn seq_increments() {
     skip_unless!(any_available(v4()));
     let mut pinger = Pinger::new();
@@ -192,6 +202,18 @@ async fn async_ping() {
         pinger.ping(request, TIMEOUT).await.unwrap().payload,
         b"hello"
     );
+}
+
+#[cfg(feature = "tokio")]
+#[tokio::test]
+async fn async_ping_function() {
+    for target in [v4(), v6()] {
+        if !any_available(target) {
+            continue;
+        }
+        let reply = ping::tokio::ping(target, TIMEOUT).await.unwrap();
+        assert_eq!(reply.source, target);
+    }
 }
 
 #[cfg(feature = "tokio")]

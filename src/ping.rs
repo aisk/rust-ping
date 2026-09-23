@@ -177,19 +177,6 @@ pub mod dgramsock {
     }
 }
 
-#[doc(hidden)]
-#[deprecated(since = "0.8.0", note = "use `Pinger` instead")]
-pub fn ping(
-    addr: IpAddr,
-    timeout: Option<Duration>,
-    ttl: Option<u32>,
-    ident: Option<u16>,
-    seq_cnt: Option<u16>,
-    payload: Option<&Token>,
-) -> Result<(), Error> {
-    rawsock::ping(addr, timeout, ttl, ident, seq_cnt, payload)
-}
-
 /// Builder for a single ping.
 ///
 /// Create one with [`Ping::new`] or [`new`], set any options, then call
