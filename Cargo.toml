@@ -9,6 +9,9 @@ categories = ["network-programming", "os"]
 keywords = ["ping", "system", "ICMP"]
 edition = "2024"
 
+[package.metadata.docs.rs]
+features = ["tokio"]
+
 [features]
 default = []
 tokio = ["dep:tokio"]

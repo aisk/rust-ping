@@ -1,3 +1,6 @@
+// The legacy API is kept unchanged until it is removed.
+#![allow(deprecated)]
+
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
@@ -99,10 +102,12 @@ fn decode_reply(addr: IpAddr, packet: &[u8]) -> Option<(EchoReply<'_>, Option<u8
 
 /// The kind of socket used to send the ICMP request.
 ///
-/// The default depends on the platform. On Windows [`Ping::new`] uses
-/// [`RAW`](SocketType::RAW), elsewhere it uses [`DGRAM`](SocketType::DGRAM).
-/// Override it with [`Ping::socket_type`].
-#[derive(Clone, Copy, Debug)]
+/// By default [`Pinger`](crate::Pinger) tries [`DGRAM`](SocketType::DGRAM)
+/// first on Linux, Android and macOS, and [`RAW`](SocketType::RAW) first
+/// elsewhere, falling back to the other one. Choose one explicitly with
+/// [`PingerBuilder::socket_type`](crate::PingerBuilder::socket_type).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum SocketType {
     /// Raw socket. Needs elevated privileges (root, or `CAP_NET_RAW` on Linux).
     RAW,
@@ -121,6 +126,8 @@ impl From<SocketType> for Type {
 }
 
 /// The outcome of a successful ping, returned by [`Ping::send`].
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `Pinger` and `Reply` instead")]
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct PingResult {
@@ -209,8 +216,10 @@ fn ping_with_socktype(
     }
 }
 
+#[doc(hidden)]
 pub mod rawsock {
     use super::*;
+    #[deprecated(since = "0.10.0", note = "use `Pinger` instead")]
     pub fn ping(
         addr: IpAddr,
         timeout: Option<Duration>,
@@ -224,8 +233,10 @@ pub mod rawsock {
     }
 }
 
+#[doc(hidden)]
 pub mod dgramsock {
     use super::*;
+    #[deprecated(since = "0.10.0", note = "use `Pinger` instead")]
     pub fn ping(
         addr: IpAddr,
         timeout: Option<Duration>,
@@ -248,10 +259,8 @@ pub mod dgramsock {
     }
 }
 
-#[deprecated(
-    since = "0.8.0",
-    note = "use `Ping::new` builder and `Ping::send` instead"
-)]
+#[doc(hidden)]
+#[deprecated(since = "0.8.0", note = "use `Pinger` instead")]
 pub fn ping(
     addr: IpAddr,
     timeout: Option<Duration>,
@@ -274,6 +283,8 @@ pub fn ping(
 /// let result = ping::new(target).send().expect("ping failed");
 /// println!("{:?}", result.rtt);
 /// ```
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `Pinger` instead")]
 #[derive(Debug, Clone)]
 pub struct Ping<'a> {
     socket_type: SocketType,
@@ -406,6 +417,8 @@ impl<'a> Ping<'a> {
 /// Creates a [`Ping`] builder targeting `addr`.
 ///
 /// Shorthand for [`Ping::new`].
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `Pinger` instead")]
 pub fn new<'a>(addr: IpAddr) -> Ping<'a> {
     return Ping::new(addr);
 }

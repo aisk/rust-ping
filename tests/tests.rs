@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::time::{Duration, SystemTime};
