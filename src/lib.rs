@@ -81,7 +81,8 @@
 //! # Tokio
 //!
 //! With the `tokio` feature, `ping::tokio::ping` and `ping::tokio::Pinger`
-//! provide the same API with an `async` ping.
+//! provide the same API with an `async` ping. Configure an async pinger with
+//! [`Pinger::builder`] and `build_tokio`.
 //!
 //! [`IpAddr`]: std::net::IpAddr
 

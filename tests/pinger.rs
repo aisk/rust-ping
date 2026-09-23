@@ -220,10 +220,10 @@ async fn async_ping_function() {
 #[tokio::test]
 async fn async_builder() {
     skip_unless!(available(SocketType::RAW, v4()));
-    let mut pinger = ping::tokio::Pinger::builder()
+    let mut pinger = Pinger::builder()
         .socket_type(SocketType::RAW)
         .ident(4323)
-        .build()
+        .build_tokio()
         .unwrap();
     assert!(pinger.ping(v4(), TIMEOUT).await.unwrap().ttl.is_some());
 }

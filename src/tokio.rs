@@ -21,7 +21,6 @@
 //! On Unix the sockets are registered with Tokio's reactor. On Windows each
 //! ping runs the blocking implementation on Tokio's blocking thread pool.
 
-use std::net::IpAddr;
 use std::time::Duration;
 
 #[cfg(unix)]
@@ -35,66 +34,17 @@ use socket2::Socket;
 use crate::errors::Error;
 #[cfg(unix)]
 use crate::errors::io_error;
-use crate::pinger::{self, Reply, Request, SocketType};
+use crate::pinger::{Reply, Request};
 use crate::socket::Config;
 #[cfg(unix)]
 use crate::socket::{FamilyState, check_payload, recv_from};
 
-/// Builder for an asynchronous [`Pinger`].
-///
-/// Takes the same options as [`crate::PingerBuilder`].
-#[derive(Clone, Debug, Default)]
-pub struct PingerBuilder {
-    inner: pinger::PingerBuilder,
-}
-
-impl PingerBuilder {
-    /// Creates a builder with default options.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// See [`crate::PingerBuilder::socket_type`].
-    pub fn socket_type(self, socket_type: SocketType) -> Self {
-        PingerBuilder {
-            inner: self.inner.socket_type(socket_type),
-        }
-    }
-
-    /// See [`crate::PingerBuilder::ident`].
-    pub fn ident(self, ident: u16) -> Self {
-        PingerBuilder {
-            inner: self.inner.ident(ident),
-        }
-    }
-
-    /// See [`crate::PingerBuilder::bind_device`].
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub fn bind_device(self, device: impl Into<String>) -> Self {
-        PingerBuilder {
-            inner: self.inner.bind_device(device),
-        }
-    }
-
-    /// See [`crate::PingerBuilder::mark`].
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub fn mark(self, mark: u32) -> Self {
-        PingerBuilder {
-            inner: self.inner.mark(mark),
-        }
-    }
-
-    /// Creates the pinger. Sockets are opened lazily by the first ping to
-    /// each address family.
-    pub fn build(self) -> Result<Pinger, Error> {
-        Ok(Pinger::from_config(self.inner.config))
-    }
-}
-
 /// Sends ICMP echo requests asynchronously, reusing its sockets across pings.
 ///
 /// Behaves like the blocking [`crate::Pinger`]. `ping` takes `&mut self`, so
-/// to ping concurrently, create one pinger per task.
+/// to ping concurrently, create one pinger per task. To set socket level
+/// options, use [`crate::Pinger::builder`] and finish with
+/// [`build_tokio`](crate::PingerBuilder::build_tokio).
 #[derive(Debug)]
 pub struct Pinger {
     config: Config,
@@ -116,11 +66,6 @@ impl Pinger {
     /// Creates a pinger with default options.
     pub fn new() -> Self {
         Self::from_config(Config::default())
-    }
-
-    /// Returns a builder to configure socket level options.
-    pub fn builder() -> PingerBuilder {
-        PingerBuilder::new()
     }
 
     pub(crate) fn from_config(config: Config) -> Self {
@@ -236,10 +181,11 @@ impl Pinger {
     }
 }
 
-/// Sends a single echo request to `target` and waits until the matching reply
-/// arrives or `timeout` elapses.
+/// Sends a single echo request and waits until the matching reply arrives or
+/// `timeout` elapses.
 ///
-/// A new socket is opened for every call. To ping repeatedly or to ping
+/// Takes an [`IpAddr`](std::net::IpAddr) or a [`Request`], like
+/// [`Pinger::ping`]. A new socket is opened for every call. To ping repeatedly or to ping
 /// several targets, reuse a [`Pinger`] instead.
 ///
 /// ```no_run
@@ -254,6 +200,6 @@ impl Pinger {
 /// # Ok(())
 /// # }
 /// ```
-pub async fn ping(target: IpAddr, timeout: Duration) -> Result<Reply, Error> {
-    Pinger::new().ping(target, timeout).await
+pub async fn ping(request: impl Into<Request>, timeout: Duration) -> Result<Reply, Error> {
+    Pinger::new().ping(request, timeout).await
 }

@@ -93,7 +93,7 @@ Tokio-based asynchronous pinging is available behind the optional `tokio` featur
 
 ```toml
 [dependencies]
-ping = { version = "0.9", features = ["tokio"] }
+ping = { version = "0.10", features = ["tokio"] }
 ```
 
 `ping::tokio::ping` and `ping::tokio::Pinger` work like `ping::ping` and `ping::Pinger` and use the same `Request`, `Reply` and `Error` types, but pinging is `async`:
@@ -131,7 +131,7 @@ async fn main() {
 }
 ```
 
-On Unix, the async pinger uses nonblocking sockets registered with Tokio's reactor, so waiting for a reply does not occupy a thread. Windows currently uses Tokio's blocking task pool as a compatibility implementation; native asynchronous Windows socket support may be added in a future release. To ping concurrently, create one pinger per task.
+On Unix, the async pinger uses nonblocking sockets registered with Tokio's reactor, so waiting for a reply does not occupy a thread. Windows currently uses Tokio's blocking task pool as a compatibility implementation; native asynchronous Windows socket support may be added in a future release. To ping concurrently, create one pinger per task. Socket options are set with the same `Pinger::builder`, finished with `build_tokio` instead of `build`.
 
 ## Socket Types: DGRAM vs. RAW
 

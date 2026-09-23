@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
-use socket2::{Socket, Type};
+use socket2::Socket;
 
 use crate::errors::{Error, io_error};
 use crate::socket::{Config, FamilyState, MIN_SOCKET_TIMEOUT, check_payload, recv_from};
@@ -22,15 +22,6 @@ pub enum SocketType {
     /// Datagram socket. Works without elevated privileges on most systems, but
     /// some Linux distributions disable it by default.
     DGRAM,
-}
-
-impl From<SocketType> for Type {
-    fn from(socket_type: SocketType) -> Self {
-        match socket_type {
-            SocketType::RAW => Type::RAW,
-            SocketType::DGRAM => Type::DGRAM,
-        }
-    }
 }
 
 /// A single echo request sent by [`Pinger::ping`].
@@ -177,6 +168,21 @@ impl PingerBuilder {
     pub fn build(self) -> Result<Pinger, Error> {
         Ok(Pinger::from_config(self.config))
     }
+
+    /// Creates an asynchronous [`tokio::Pinger`](crate::tokio::Pinger) with
+    /// the same options. Available with the `tokio` feature.
+    ///
+    /// ```no_run
+    /// # use ping::{Pinger, SocketType};
+    /// let mut pinger = Pinger::builder()
+    ///     .socket_type(SocketType::RAW)
+    ///     .build_tokio()?;
+    /// # Ok::<(), ping::Error>(())
+    /// ```
+    #[cfg(feature = "tokio")]
+    pub fn build_tokio(self) -> Result<crate::tokio::Pinger, Error> {
+        Ok(crate::tokio::Pinger::from_config(self.config))
+    }
 }
 
 /// Sends ICMP echo requests, reusing its sockets across pings.
@@ -294,12 +300,12 @@ impl Pinger {
     }
 }
 
-/// Sends a single echo request to `target` and blocks until the matching reply
-/// arrives or `timeout` elapses.
+/// Sends a single echo request and blocks until the matching reply arrives or
+/// `timeout` elapses.
 ///
-/// A new socket is opened for every call. To ping repeatedly or to ping
-/// several targets, reuse a [`Pinger`] instead. Use a [`Pinger`] with a
-/// [`Request`] as well to set options such as the TTL or the payload.
+/// Takes an [`IpAddr`] or a [`Request`], like [`Pinger::ping`]. A new socket is
+/// opened for every call. To ping repeatedly or to ping several targets, reuse
+/// a [`Pinger`] instead.
 ///
 /// ```no_run
 /// use std::net::IpAddr;
@@ -310,6 +316,6 @@ impl Pinger {
 /// println!("rtt {:?} from {}", reply.rtt, reply.source);
 /// # Ok::<(), ping::Error>(())
 /// ```
-pub fn ping(target: IpAddr, timeout: Duration) -> Result<Reply, Error> {
-    Pinger::new().ping(target, timeout)
+pub fn ping(request: impl Into<Request>, timeout: Duration) -> Result<Reply, Error> {
+    Pinger::new().ping(request, timeout)
 }

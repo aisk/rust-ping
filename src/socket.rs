@@ -22,6 +22,13 @@ const DEFAULT_SOCKET_TYPES: &[SocketType] = &[SocketType::DGRAM, SocketType::RAW
 #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
 const DEFAULT_SOCKET_TYPES: &[SocketType] = &[SocketType::RAW, SocketType::DGRAM];
 
+fn raw_type(socket_type: SocketType) -> Type {
+    match socket_type {
+        SocketType::RAW => Type::RAW,
+        SocketType::DGRAM => Type::DGRAM,
+    }
+}
+
 /// Socket level options shared by every address family of a pinger.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Config {
@@ -49,7 +56,7 @@ impl Config {
 
         let mut first_error = None;
         for &socket_type in socket_types {
-            match Socket::new(domain, Type::from(socket_type), Some(protocol)) {
+            match Socket::new(domain, raw_type(socket_type), Some(protocol)) {
                 Ok(socket) => return self.setup(socket, socket_type, v6),
                 Err(error) => {
                     first_error.get_or_insert(error);
