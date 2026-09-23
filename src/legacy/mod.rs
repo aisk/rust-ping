@@ -4,13 +4,11 @@
 use std::net::IpAddr;
 use std::time::Duration;
 
-use socket2::Type;
-
 use crate::errors::Error;
-use crate::pinger::{PingerBuilder, Reply, Request};
+use crate::pinger::{PingerBuilder, Reply, Request, SocketType};
 
 #[cfg(feature = "tokio")]
-mod async_ping;
+mod tokio;
 
 const TOKEN_SIZE: usize = 24;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(4);
@@ -78,31 +76,6 @@ fn ping_with_socktype(
     }
     .send()?;
     Ok(())
-}
-
-/// The kind of socket used to send the ICMP request.
-///
-/// By default [`Pinger`](crate::Pinger) tries [`DGRAM`](SocketType::DGRAM)
-/// first on Linux, Android and macOS, and [`RAW`](SocketType::RAW) first
-/// elsewhere, falling back to the other one. Choose one explicitly with
-/// [`PingerBuilder::socket_type`](crate::PingerBuilder::socket_type).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum SocketType {
-    /// Raw socket. Needs elevated privileges (root, or `CAP_NET_RAW` on Linux).
-    RAW,
-    /// Datagram socket. Works without elevated privileges on most systems, but
-    /// some Linux distributions disable it by default.
-    DGRAM,
-}
-
-impl From<SocketType> for Type {
-    fn from(socket_type: SocketType) -> Self {
-        match socket_type {
-            SocketType::RAW => Type::RAW,
-            SocketType::DGRAM => Type::DGRAM,
-        }
-    }
 }
 
 /// The outcome of a successful ping, returned by [`Ping::send`].
@@ -342,3 +315,11 @@ impl<'a> Ping<'a> {
 pub fn new<'a>(addr: IpAddr) -> Ping<'a> {
     return Ping::new(addr);
 }
+
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `SocketType::RAW` instead")]
+pub const RAW: SocketType = SocketType::RAW;
+
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `SocketType::DGRAM` instead")]
+pub const DGRAM: SocketType = SocketType::DGRAM;

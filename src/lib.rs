@@ -86,24 +86,16 @@
 //! [`IpAddr`]: std::net::IpAddr
 
 mod errors;
+mod legacy;
 // Copied from tokio-ping, so unused parts are kept.
 #[allow(dead_code, unused_imports)]
 mod packet;
-mod ping;
 mod pinger;
+mod socket;
 #[cfg(feature = "tokio")]
 pub mod tokio;
 
 pub use crate::errors::Error;
-pub use crate::ping::SocketType;
 #[allow(deprecated)]
-pub use crate::ping::{Ping, PingResult, dgramsock, new, rawsock};
-pub use crate::pinger::{Pinger, PingerBuilder, Reply, Request, ping};
-
-#[doc(hidden)]
-#[deprecated(since = "0.10.0", note = "use `SocketType::RAW` instead")]
-pub const RAW: SocketType = SocketType::RAW;
-
-#[doc(hidden)]
-#[deprecated(since = "0.10.0", note = "use `SocketType::DGRAM` instead")]
-pub const DGRAM: SocketType = SocketType::DGRAM;
+pub use crate::legacy::{DGRAM, Ping, PingResult, RAW, dgramsock, new, rawsock};
+pub use crate::pinger::{Pinger, PingerBuilder, Reply, Request, SocketType, ping};
