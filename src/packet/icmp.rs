@@ -21,6 +21,9 @@ pub trait Proto {
     const ECHO_REQUEST_CODE: u8;
     const ECHO_REPLY_TYPE: u8;
     const ECHO_REPLY_CODE: u8;
+    /// Whether the checksum must be computed by the sender. The kernel always
+    /// computes it for ICMPv6 (RFC 3542).
+    const USER_CHECKSUM: bool;
 }
 
 impl Proto for IcmpV4 {
@@ -28,6 +31,7 @@ impl Proto for IcmpV4 {
     const ECHO_REQUEST_CODE: u8 = 0;
     const ECHO_REPLY_TYPE: u8 = 0;
     const ECHO_REPLY_CODE: u8 = 0;
+    const USER_CHECKSUM: bool = true;
 }
 
 impl Proto for IcmpV6 {
@@ -35,6 +39,7 @@ impl Proto for IcmpV6 {
     const ECHO_REQUEST_CODE: u8 = 0;
     const ECHO_REPLY_TYPE: u8 = 129;
     const ECHO_REPLY_CODE: u8 = 0;
+    const USER_CHECKSUM: bool = false;
 }
 
 pub struct EchoRequest<'a> {
@@ -60,6 +65,20 @@ impl<'a> EchoRequest<'a> {
         write_checksum(buffer);
         Ok(())
     }
+}
+
+/// Builds an echo request whose body is `nonce` followed by `payload`.
+pub fn build_echo_request<P: Proto>(ident: u16, seq: u16, nonce: &[u8], payload: &[u8]) -> Vec<u8> {
+    let mut buffer = Vec::with_capacity(HEADER_SIZE + nonce.len() + payload.len());
+    buffer.extend_from_slice(&[P::ECHO_REQUEST_TYPE, P::ECHO_REQUEST_CODE, 0, 0]);
+    buffer.extend_from_slice(&ident.to_be_bytes());
+    buffer.extend_from_slice(&seq.to_be_bytes());
+    buffer.extend_from_slice(nonce);
+    buffer.extend_from_slice(payload);
+    if P::USER_CHECKSUM {
+        write_checksum(&mut buffer);
+    }
+    buffer
 }
 
 pub struct EchoReply<'a> {
@@ -88,6 +107,24 @@ impl<'a> EchoReply<'a> {
             ident,
             seq_cnt,
             payload,
+        })
+    }
+}
+
+impl<'a> EchoReply<'a> {
+    /// Decodes an echo reply of any length, returning everything after the
+    /// ICMP header as the payload.
+    pub fn decode_body<P: Proto>(buffer: &'a [u8]) -> Result<Self, Error> {
+        if buffer.len() < HEADER_SIZE {
+            return Err(Error::InvalidSize);
+        }
+        if buffer[0] != P::ECHO_REPLY_TYPE || buffer[1] != P::ECHO_REPLY_CODE {
+            return Err(Error::InvalidPacket);
+        }
+        Ok(EchoReply {
+            ident: u16::from_be_bytes([buffer[4], buffer[5]]),
+            seq_cnt: u16::from_be_bytes([buffer[6], buffer[7]]),
+            payload: &buffer[HEADER_SIZE..],
         })
     }
 }

@@ -1,25 +1,41 @@
 //! An ICMP echo ("ping") implementation for IPv4 and IPv6.
 //!
-//! Send an ICMP echo request to a target [`IpAddr`] and wait for the reply or
-//! a timeout.
+//! Send ICMP echo requests to a target [`IpAddr`] and wait for the reply or a
+//! timeout.
 //!
 //! # Quick start
 //!
-//! The main entry point is the [`Ping`] builder, created with [`new`].
-//! Configure the options you need and call [`Ping::send`], which returns a
-//! [`PingResult`] describing the reply.
+//! Create a [`Pinger`] and call [`Pinger::ping`] with a target and a timeout.
+//! The pinger keeps its sockets open, so reuse it for repeated pings.
 //!
 //! ```no_run
+//! use std::net::IpAddr;
 //! use std::time::Duration;
+//! use ping::Pinger;
 //!
-//! let target = "8.8.8.8".parse().unwrap();
-//! let result = ping::new(target)
-//!     .timeout(Duration::from_secs(2))
-//!     .ttl(64)
-//!     .send()
-//!     .expect("ping failed");
+//! let target: IpAddr = "8.8.8.8".parse().unwrap();
+//! let mut pinger = Pinger::new();
+//! let reply = pinger.ping(target, Duration::from_secs(1))?;
+//! println!("rtt {:?} from {}", reply.rtt, reply.source);
+//! # Ok::<(), ping::Error>(())
+//! ```
 //!
-//! println!("round-trip time: {:?}", result.rtt);
+//! Per request options such as the TTL and the payload are set on a
+//! [`Request`], and socket options such as the socket type are set with
+//! [`Pinger::builder`].
+//!
+//! ```no_run
+//! use std::net::IpAddr;
+//! use std::time::Duration;
+//! use ping::{Pinger, Request, SocketType};
+//!
+//! let target: IpAddr = "8.8.8.8".parse().unwrap();
+//! let mut pinger = Pinger::builder()
+//!     .socket_type(SocketType::RAW)
+//!     .build()?;
+//! let request = Request::new(target).ttl(5).payload(b"hello".to_vec());
+//! pinger.ping(request, Duration::from_secs(1))?;
+//! # Ok::<(), ping::Error>(())
 //! ```
 //!
 //! # Pinging a host name
@@ -29,6 +45,7 @@
 //!
 //! ```no_run
 //! use std::net::ToSocketAddrs;
+//! use std::time::Duration;
 //!
 //! // The port is irrelevant, we only need the resolved IP.
 //! let addr = "www.google.com:0"
@@ -38,23 +55,40 @@
 //!     .unwrap()
 //!     .ip();
 //!
-//! ping::new(addr).send().expect("ping failed");
+//! ping::Pinger::new().ping(addr, Duration::from_secs(1))?;
+//! # Ok::<(), ping::Error>(())
 //! ```
 //!
 //! # Socket types
 //!
-//! Sending ICMP traffic over a [`RAW`] socket needs elevated privileges, while
-//! a [`DGRAM`] socket works unprivileged on most systems. See [`SocketType`]
-//! for the per-platform default and how to override it.
+//! Sending ICMP traffic over a [`RAW`](SocketType::RAW) socket needs elevated
+//! privileges, while a [`DGRAM`](SocketType::DGRAM) socket works unprivileged
+//! on most systems. See [`SocketType`] for the default order.
+//!
+//! # Tokio
+//!
+//! With the `tokio` feature, `ping::tokio::Pinger` provides the same API with an
+//! `async` ping.
 //!
 //! [`IpAddr`]: std::net::IpAddr
 
 mod errors;
 mod packet;
 mod ping;
+mod pinger;
+#[cfg(feature = "tokio")]
+pub mod tokio;
 
 pub use crate::errors::Error;
+pub use crate::ping::SocketType;
 #[allow(deprecated)]
-pub use crate::ping::{
-    Ping, PingResult, SocketType, SocketType::DGRAM, SocketType::RAW, dgramsock, new, ping, rawsock,
-};
+pub use crate::ping::{Ping, PingResult, dgramsock, new, ping, rawsock};
+pub use crate::pinger::{Pinger, PingerBuilder, Reply, Request};
+
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `SocketType::RAW` instead")]
+pub const RAW: SocketType = SocketType::RAW;
+
+#[doc(hidden)]
+#[deprecated(since = "0.10.0", note = "use `SocketType::DGRAM` instead")]
+pub const DGRAM: SocketType = SocketType::DGRAM;
