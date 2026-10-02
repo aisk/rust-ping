@@ -18,7 +18,6 @@ tokio = ["dep:tokio"]
 
 [dependencies]
 socket2 = { version = "0.6", features = ["all"] }
-thiserror = ">=1.0, <=2.1"
 rand = ">=0.8, <=0.9"
 tokio = { version = "1", features = ["net", "rt", "time"], optional = true }
 

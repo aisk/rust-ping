@@ -1,14 +1,8 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("too small header")]
     TooSmallHeader,
-    #[error("invalid header size")]
     InvalidHeaderSize,
-    #[error("invalid version")]
     InvalidVersion,
-    #[error("unknown protocol")]
     UnknownProtocol,
 }
 
