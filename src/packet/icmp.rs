@@ -1,15 +1,12 @@
 use std::io::Write;
-use thiserror::Error;
 
 pub const HEADER_SIZE: usize = 8;
 /// Size of the correlation token carried as the echo payload.
 pub const PAYLOAD_SIZE: usize = 24;
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("invalid size")]
     InvalidSize,
-    #[error("invalid packet")]
     InvalidPacket,
 }
 
